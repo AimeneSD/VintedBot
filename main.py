@@ -7,6 +7,7 @@ import asyncio
 import random
 from dotenv import load_dotenv
 from utils.vinted import vinted_client
+from deep_translator import GoogleTranslator
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -48,6 +49,21 @@ def save_known_items(cache):
 
 known_items = load_known_items()
 
+# --- Fonctions Utilitaires ---
+def translate_to_fr(text):
+    if not text:
+        return ""
+    try:
+        return GoogleTranslator(source='auto', target='fr').translate(text)
+    except Exception as e:
+        print(f"Erreur traduction: {e}")
+        return text
+
+class VintedItemView(discord.ui.View):
+    def __init__(self, url: str):
+        super().__init__()
+        self.add_item(discord.ui.Button(label="Acheter sur Vinted", url=url, style=discord.ButtonStyle.link))
+
 # -----------------------------------
 
 class VintedBot(commands.Bot):
@@ -56,19 +72,16 @@ class VintedBot(commands.Bot):
 
     async def setup_hook(self):
         await self.tree.sync()
-        print("Commandes Slash synchronisees globalement")
-        # Lancer la boucle de surveillance en arriere-plan
+        print("Commandes Slash synchronisées globalement")
         self.loop.create_task(self.vinted_sniper_loop())
 
     async def vinted_sniper_loop(self):
         await self.wait_until_ready()
-        print("Demarrage de la boucle de surveillance Vinted...")
+        print("Démarrage de la boucle de surveillance Vinted Phase 5...")
         while not self.is_closed():
-            # Delai aleatoire entre 23 et 27 secondes pour imiter un comportement humain
-            delay = random.uniform(23, 27)
+            delay = random.uniform(20, 23)
             await asyncio.sleep(delay)
             
-            # Recuperer toutes les URLs uniques a verifier
             all_urls = set()
             for urls in config_surveillances.values():
                 for u in urls:
@@ -80,10 +93,8 @@ class VintedBot(commands.Bot):
                     if not items:
                         continue
                         
-                    # Identifier les nouvelles annonces
                     if url not in known_items:
                         known_items[url] = []
-                        # Au premier lancement, on sauvegarde tout pour ne pas spammer l'utilisateur
                         for item in items:
                             known_items[url].append(item['id'])
                         save_known_items(known_items)
@@ -96,26 +107,79 @@ class VintedBot(commands.Bot):
                             known_items[url].append(item['id'])
                     
                     if new_items:
-                        # On garde seulement les 100 derniers IDs pour eviter que le fichier ne grossisse a l'infini
                         known_items[url] = known_items[url][-100:]
                         save_known_items(known_items)
                         
-                        # Phase 4 : Envoi d'un message texte basique (sera ameliore en Phase 5 avec Embeds)
-                        for user_id_str, user_urls in config_surveillances.items():
-                            if url in user_urls:
-                                user = self.get_user(int(user_id_str))
-                                if user:
-                                    for item in new_items:
-                                        msg = (
-                                            f"Nouvelle annonce trouvee !\n"
-                                            f"Titre: {item.get('title', 'Inconnu')}\n"
-                                            f"Prix: {item.get('price', {}).get('amount', 'Inconnu')} {item.get('price', {}).get('currency_code', '')}\n"
-                                            f"Lien: {item.get('url', 'Inconnu')}"
-                                        )
-                                        try:
-                                            await user.send(msg)
-                                        except Exception as e:
-                                            print(f"Impossible d'envoyer le MP a {user.name}: {e}")
+                        for item in new_items:
+                            # 1. Recuperer les details complets
+                            detailed_item = await vinted_client.get_item(str(item['id']))
+                            
+                            # Fusionner les donnees
+                            title = item.get('title', 'Sans titre')
+                            price = item.get('price', {}).get('amount', 'N/A')
+                            currency = item.get('price', {}).get('currency_code', 'EUR')
+                            item_url = item.get('url', 'https://www.vinted.fr')
+                            brand = item.get('brand_title', 'Non spécifiée')
+                            size = item.get('size_title', 'Non spécifiée')
+                            
+                            description = ""
+                            seller_name = "Inconnu"
+                            photos = []
+                            
+                            if detailed_item:
+                                description = detailed_item.get('description', '')
+                                seller_name = detailed_item.get('user', {}).get('login', 'Inconnu')
+                                photos_data = detailed_item.get('photos', [])
+                                photos = [p.get('url') for p in photos_data if p.get('url')]
+                            else:
+                                # Fallback si get_item echoue
+                                if 'photo' in item and item['photo']:
+                                    photos = [item['photo'].get('url')]
+                            
+                            # 2. Traduire
+                            title_fr = await asyncio.to_thread(translate_to_fr, title)
+                            desc_fr = await asyncio.to_thread(translate_to_fr, description)
+                            
+                            if len(desc_fr) > 1024:
+                                desc_fr = desc_fr[:1020] + "..."
+                            
+                            # 3. Construire les Embeds (Galerie d'images)
+                            embeds = []
+                            
+                            # Embed principal
+                            main_embed = discord.Embed(
+                                title=title_fr,
+                                url=item_url,
+                                description=desc_fr if desc_fr else "*Aucune description*",
+                                color=discord.Color.from_rgb(9, 177, 186) # Cyan Vinted
+                            )
+                            main_embed.add_field(name="Prix", value=f"**{price} {currency}**", inline=True)
+                            main_embed.add_field(name="Taille", value=f"`{size}`", inline=True)
+                            main_embed.add_field(name="Marque", value=brand, inline=True)
+                            main_embed.add_field(name="Vendeur", value=seller_name, inline=True)
+                            
+                            if photos:
+                                main_embed.set_image(url=photos[0])
+                            
+                            embeds.append(main_embed)
+                            
+                            # Embeds supplementaires pour les images (jusqu'a 4 autres pour faire max 5 images)
+                            for photo_url in photos[1:5]:
+                                extra_embed = discord.Embed(url=item_url)
+                                extra_embed.set_image(url=photo_url)
+                                embeds.append(extra_embed)
+                                
+                            view = VintedItemView(item_url)
+                            
+                            # 4. Envoyer aux utilisateurs concernes
+                            for user_id_str, user_urls in config_surveillances.items():
+                                if url in user_urls:
+                                    try:
+                                        user = await self.fetch_user(int(user_id_str))
+                                        if user:
+                                            await user.send(embeds=embeds, view=view)
+                                    except Exception as err:
+                                        print(f"Impossible d'envoyer a {user_id_str}: {err}")
                 except Exception as e:
                     print(f"Erreur lors de la verification de l'URL {url}: {e}")
 
@@ -123,35 +187,35 @@ bot = VintedBot()
 
 @bot.event
 async def on_ready():
-    print(f"Bot connecte en tant que {bot.user}")
+    print(f"Bot connecté en tant que {bot.user}")
 
-@bot.tree.command(name="ping", description="Verifie si le bot VintedBot est en ligne")
+@bot.tree.command(name="ping", description="Vérifie si le bot VintedBot est en ligne")
 async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message("Pong! Le sniper Vinted est pret a tirer.", ephemeral=True)
+    await interaction.response.send_message("Pong! Le sniper Vinted est prêt à tirer.", ephemeral=True)
 
-@bot.tree.command(name="vinted_add", description="Ajoute une recherche Vinted a surveiller via son URL")
+@bot.tree.command(name="vinted_add", description="Ajoute une recherche Vinted à surveiller via son URL")
 @app_commands.describe(url="L'URL de ta recherche (ex: https://www.vinted.fr/catalog?...)")
 async def vinted_add(interaction: discord.Interaction, url: str):
     user_id = str(interaction.user.id)
     
     if "vinted." not in url:
-        await interaction.response.send_message("L'URL ne semble pas etre une URL Vinted valide.", ephemeral=True)
+        await interaction.response.send_message("L'URL ne semble pas être une URL Vinted valide.", ephemeral=True)
         return
         
     if user_id not in config_surveillances:
         config_surveillances[user_id] = []
         
     if url in config_surveillances[user_id]:
-        await interaction.response.send_message("Tu surveilles deja cette recherche !", ephemeral=True)
+        await interaction.response.send_message("Tu surveilles déjà cette recherche !", ephemeral=True)
         return
         
     config_surveillances[user_id].append(url)
     save_config(config_surveillances)
     
     await interaction.response.send_message(
-        f"**Surveillance Vinted ajoutee avec succes !**\n"
-        f"Je te previendrai en MP des qu'une nouvelle annonce correspondant a ces criteres sera publiee.\n\n"
-        f"*URL surveillee : <{url}>*", 
+        f"**Surveillance Vinted ajoutée avec succès !**\n"
+        f"Je te préviendrai en MP dès qu'une nouvelle annonce correspondant à ces critères sera publiée.\n\n"
+        f"*URL surveillée : <{url}>*", 
         ephemeral=True
     )
 
@@ -173,22 +237,39 @@ async def vinted_list(interaction: discord.Interaction):
 async def autocomplete_vinted_urls(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     user_id = str(interaction.user.id)
     urls = config_surveillances.get(user_id, [])
-    matches = [u for u in urls if current.lower() in u.lower()]
-    return [app_commands.Choice(name=u[:100] + ("..." if len(u) > 100 else ""), value=u) for u in matches][:25]
+    matches = [(str(i), u) for i, u in enumerate(urls) if current.lower() in u.lower()]
+    
+    choices = []
+    for index_str, url in matches[:25]:
+        short_name = f"{int(index_str)+1}. {url}"
+        if len(short_name) > 100:
+            short_name = short_name[:97] + "..."
+        choices.append(app_commands.Choice(name=short_name, value=index_str))
+        
+    return choices
 
 @bot.tree.command(name="vinted_remove", description="Supprime une de tes surveillances Vinted")
-@app_commands.describe(url="Choisis l'URL de la surveillance a supprimer")
-@app_commands.autocomplete(url=autocomplete_vinted_urls)
-async def vinted_remove(interaction: discord.Interaction, url: str):
+@app_commands.describe(url_index="Choisis l'URL de la surveillance à supprimer dans la liste")
+@app_commands.autocomplete(url_index=autocomplete_vinted_urls)
+async def vinted_remove(interaction: discord.Interaction, url_index: str):
     user_id = str(interaction.user.id)
     urls = config_surveillances.get(user_id, [])
     
-    if url in urls:
-        urls.remove(url)
-        save_config(config_surveillances)
-        await interaction.response.send_message("**Surveillance supprimee avec succes.** Je ne chercherai plus cette URL.", ephemeral=True)
-    else:
-        await interaction.response.send_message("Cette URL n'est pas dans ta liste de surveillances.", ephemeral=True)
+    try:
+        index = int(url_index)
+        if 0 <= index < len(urls):
+            removed_url = urls.pop(index)
+            save_config(config_surveillances)
+            await interaction.response.send_message(f"**Surveillance supprimée avec succès.**\nURL retirée : <{removed_url}>", ephemeral=True)
+        else:
+            await interaction.response.send_message("L'index fourni est invalide.", ephemeral=True)
+    except ValueError:
+        if url_index in urls:
+            urls.remove(url_index)
+            save_config(config_surveillances)
+            await interaction.response.send_message("**Surveillance supprimée avec succès.**", ephemeral=True)
+        else:
+            await interaction.response.send_message("Sélection invalide. Utilise la liste déroulante pour choisir l'URL à supprimer.", ephemeral=True)
 
 if __name__ == "__main__":
     if not TOKEN:
