@@ -7,7 +7,7 @@ import asyncio
 import random
 from dotenv import load_dotenv
 from utils.vinted import vinted_client
-from deep_translator import GoogleTranslator
+import utils.gemini as gemini
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -15,7 +15,6 @@ TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 CONFIG_FILE = "data/config_vinted.json"
 CACHE_FILE = "data/offres_connues.json"
 
-# --- Gestion de la Configuration ---
 def load_config():
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
@@ -32,7 +31,6 @@ def save_config(config):
 
 config_surveillances = load_config()
 
-# --- Gestion du Cache des Annonces ---
 def load_known_items():
     if os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
@@ -49,22 +47,10 @@ def save_known_items(cache):
 
 known_items = load_known_items()
 
-# --- Fonctions Utilitaires ---
-def translate_to_fr(text):
-    if not text:
-        return ""
-    try:
-        return GoogleTranslator(source='auto', target='fr').translate(text)
-    except Exception as e:
-        print(f"Erreur traduction: {e}")
-        return text
-
 class VintedItemView(discord.ui.View):
     def __init__(self, url: str):
         super().__init__()
         self.add_item(discord.ui.Button(label="Acheter sur Vinted", url=url, style=discord.ButtonStyle.link))
-
-# -----------------------------------
 
 class VintedBot(commands.Bot):
     def __init__(self):
@@ -77,9 +63,9 @@ class VintedBot(commands.Bot):
 
     async def vinted_sniper_loop(self):
         await self.wait_until_ready()
-        print("Démarrage de la boucle de surveillance Vinted Phase 5...")
+        print("Démarrage de la boucle de surveillance Vinted Phase 6 (Ultra-Rapide)...")
         while not self.is_closed():
-            delay = random.uniform(20, 23)
+            delay = random.uniform(5, 8)
             await asyncio.sleep(delay)
             
             all_urls = set()
@@ -111,77 +97,114 @@ class VintedBot(commands.Bot):
                         save_known_items(known_items)
                         
                         for item in new_items:
-                            # 1. Recuperer les details complets
-                            detailed_item = await vinted_client.get_item(str(item['id']))
+                            self.loop.create_task(self.process_item_async(item, url))
                             
-                            # Fusionner les donnees
-                            title = item.get('title', 'Sans titre')
-                            price = item.get('price', {}).get('amount', 'N/A')
-                            currency = item.get('price', {}).get('currency_code', 'EUR')
-                            item_url = item.get('url', 'https://www.vinted.fr')
-                            brand = item.get('brand_title', 'Non spécifiée')
-                            size = item.get('size_title', 'Non spécifiée')
-                            
-                            description = ""
-                            seller_name = "Inconnu"
-                            photos = []
-                            
-                            if detailed_item:
-                                description = detailed_item.get('description', '')
-                                seller_name = detailed_item.get('user', {}).get('login', 'Inconnu')
-                                photos_data = detailed_item.get('photos', [])
-                                photos = [p.get('url') for p in photos_data if p.get('url')]
-                            else:
-                                # Fallback si get_item echoue
-                                if 'photo' in item and item['photo']:
-                                    photos = [item['photo'].get('url')]
-                            
-                            # 2. Traduire
-                            title_fr = await asyncio.to_thread(translate_to_fr, title)
-                            desc_fr = await asyncio.to_thread(translate_to_fr, description)
-                            
-                            if len(desc_fr) > 1024:
-                                desc_fr = desc_fr[:1020] + "..."
-                            
-                            # 3. Construire les Embeds (Galerie d'images)
-                            embeds = []
-                            
-                            # Embed principal
-                            main_embed = discord.Embed(
-                                title=title_fr,
-                                url=item_url,
-                                description=desc_fr if desc_fr else "*Aucune description*",
-                                color=discord.Color.from_rgb(9, 177, 186) # Cyan Vinted
-                            )
-                            main_embed.add_field(name="Prix", value=f"**{price} {currency}**", inline=True)
-                            main_embed.add_field(name="Taille", value=f"`{size}`", inline=True)
-                            main_embed.add_field(name="Marque", value=brand, inline=True)
-                            main_embed.add_field(name="Vendeur", value=seller_name, inline=True)
-                            
-                            if photos:
-                                main_embed.set_image(url=photos[0])
-                            
-                            embeds.append(main_embed)
-                            
-                            # Embeds supplementaires pour les images (jusqu'a 4 autres pour faire max 5 images)
-                            for photo_url in photos[1:5]:
-                                extra_embed = discord.Embed(url=item_url)
-                                extra_embed.set_image(url=photo_url)
-                                embeds.append(extra_embed)
-                                
-                            view = VintedItemView(item_url)
-                            
-                            # 4. Envoyer aux utilisateurs concernes
-                            for user_id_str, user_urls in config_surveillances.items():
-                                if url in user_urls:
-                                    try:
-                                        user = await self.fetch_user(int(user_id_str))
-                                        if user:
-                                            await user.send(embeds=embeds, view=view)
-                                    except Exception as err:
-                                        print(f"Impossible d'envoyer a {user_id_str}: {err}")
                 except Exception as e:
                     print(f"Erreur lors de la verification de l'URL {url}: {e}")
+
+    async def process_item_async(self, item, search_url):
+        try:
+            item_id = str(item["id"])
+            description_raw = await vinted_client.get_item_description(item_id)
+            
+            user_id = item.get("user", {}).get("id")
+            seller_name = item.get("user", {}).get("login", "Inconnu")
+            seller_rating_str = ""
+            
+            if user_id:
+                user_info = await vinted_client.get_user_info(str(user_id))
+                raw_rating = user_info.get("feedback_reputation", 0.0)
+                count = user_info.get("feedback_count", 0)
+                if count > 0:
+                    rating = raw_rating * 5.0
+                    seller_rating_str = f"Note : {rating:.1f}/5 ({count} avis)"
+                else:
+                    seller_rating_str = "Aucun avis"
+            
+            title = item.get("title", "Sans titre")
+            price = item.get("price", {}).get("amount", "N/A")
+            currency = item.get("price", {}).get("currency_code", "EUR")
+            item_url = item.get("url", "https://www.vinted.fr")
+            brand = item.get("brand_title", "")
+            photo_url = ""
+            if "photo" in item and item["photo"]:
+                photo_url = item["photo"].get("url", "")
+                
+            item_data = {
+                "title": title,
+                "description": description_raw,
+                "price": f"{price} {currency}"
+            }
+            
+            analysis = await gemini.analyze_item_async(item_data)
+            
+            if analysis is None:
+                return
+            if not analysis.get("is_semantic_match", True):
+                print(f"[Filtre] Match Sémantique = False pour {item_url}")
+                return
+            
+            recommandation = analysis.get("recommandation", "🔴 À FUIR")
+            if recommandation == "🔴 À FUIR":
+                print(f"[Filtre] Recommandation À FUIR pour {item_url}")
+                return
+            
+            score = analysis.get("confidence_score", 0)
+            embed_title = f"{recommandation} | Score : {score}/100"
+            
+            color = discord.Color.green() if "🟢" in recommandation else discord.Color.orange()
+            
+            main_embed = discord.Embed(
+                title=embed_title,
+                url=item_url,
+                description=title,
+                color=color
+            )
+            
+            main_embed.add_field(name="Prix", value=f"**{price} {currency}**", inline=True)
+            if brand:
+                main_embed.add_field(name="Marque", value=brand, inline=True)
+                
+            financials = analysis.get("financial_estimation", {})
+            profit = financials.get("estimated_net_profit_euros", "N/A")
+            main_embed.add_field(name="Bénéfice net estimé", value=f"**+{profit}€**", inline=True)
+            
+            red_flags = analysis.get("red_flags", [])
+            green_flags = analysis.get("green_flags", [])
+            
+            if green_flags:
+                main_embed.add_field(name="Points Positifs 🟢", value="\n".join([f"- {f}" for f in green_flags]), inline=False)
+            if red_flags:
+                main_embed.add_field(name="Points Négatifs 🔴", value="\n".join([f"- {f}" for f in red_flags]), inline=False)
+                
+            repairs = analysis.get("repairs_needed", [])
+            if repairs:
+                main_embed.add_field(name="Réparations", value="\n".join([f"- {f}" for f in repairs]), inline=False)
+            
+            if seller_name:
+                footer_text = f"Vendeur : {seller_name}"
+                if seller_rating_str:
+                    footer_text += f" - {seller_rating_str}"
+                main_embed.set_footer(text=footer_text)
+            
+            if photo_url:
+                main_embed.set_image(url=photo_url)
+            
+            await self.send_to_subscribers(search_url, [main_embed])
+            
+        except Exception as e:
+            print(f"Erreur process_item_async: {e}")
+
+    async def send_to_subscribers(self, search_url, embeds):    async def send_to_subscribers(self, search_url, embeds):
+        for user_id_str, user_urls in config_surveillances.items():
+            if search_url in user_urls:
+                try:
+                    user = await self.fetch_user(int(user_id_str))
+                    if user:
+                        await user.send(embeds=embeds)
+                        await asyncio.sleep(1)
+                except Exception as err:
+                    print(f"Impossible d'envoyer a {user_id_str}: {err}")
 
 bot = VintedBot()
 
@@ -270,6 +293,16 @@ async def vinted_remove(interaction: discord.Interaction, url_index: str):
             await interaction.response.send_message("**Surveillance supprimée avec succès.**", ephemeral=True)
         else:
             await interaction.response.send_message("Sélection invalide. Utilise la liste déroulante pour choisir l'URL à supprimer.", ephemeral=True)
+
+@bot.tree.command(name="setprompt", description="Met à jour le fichier critere.md (Ton filtre IA personnalisé)")
+@app_commands.describe(fichier="Fichier .md ou .txt contenant tes critères")
+async def setprompt(interaction: discord.Interaction, fichier: discord.Attachment):
+    if not fichier.filename.endswith((".md", ".txt")):
+        await interaction.response.send_message("Merci de fournir un fichier avec l'extension .md ou .txt", ephemeral=True)
+        return
+        
+    await fichier.save("critere.md")
+    await interaction.response.send_message("✅ Fichier `critere.md` mis à jour avec succès ! L'IA utilisera ce nouveau prompt à partir de maintenant.", ephemeral=True)
 
 if __name__ == "__main__":
     if not TOKEN:
