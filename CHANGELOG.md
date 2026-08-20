@@ -11,3 +11,13 @@
 ## Patch - Correction de l'Autocompletion Discord
 - Correction du bug empechant l'utilisation de `/vinted_remove` avec de longues URLs (limite de 100 caracteres de Discord).
 - L'autocompletion affiche desormais un titre raccourci numéroté, et utilise l'index interne comme valeur de selection pour une suppression robuste.
+
+## [Unreleased]
+### Added
+- Added SQLite database for Vinted history (3 weeks retention) and component prices.
+- Added daily cron job (AI scraper) to update AliExpress component prices.
+- Injected market context into Gemini prompt for better profit estimations.
+
+## [Unreleased]
+### Changed
+- Switched AliExpress component price scraping from Daily Cron Job to Single-Call JIT (Just-In-Time) evaluation. Gemini now estimates missing or stale (>14 days) component prices on the fly during the final verdict analysis and automatically persists them into SQLite.

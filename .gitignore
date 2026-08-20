@@ -1,1 +1,6 @@
 wg0.conf
+.env
+*.db
+__pycache__/
+*.pyc
+

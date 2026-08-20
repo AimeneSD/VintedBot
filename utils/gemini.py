@@ -1,3 +1,4 @@
+import utils.database as db
 import os
 import json
 import time
@@ -47,6 +48,32 @@ def analyze_item(item_data, max_retries=3):
     description = item_data.get("description", "Sans description")
     prix = item_data.get("price", "Inconnu")
     
+    # --- CONTEXTE MARCHÉ DEPUIS SQLITE ---
+    market_context = "\n\n--- INFO MARCHÉ (Base de données locale) ---\n"
+    
+    # Historique Vinted
+    clean_title = ' '.join([w for w in titre.lower().replace('-', ' ').split() if len(w) > 2])
+    vinted_avg = None
+    if clean_title:
+        # Essayer avec les 2 premiers mots importants
+        keywords = ' '.join(clean_title.split()[:2])
+        vinted_avg = db.get_average_vinted_price(keywords)
+    
+    if vinted_avg:
+        market_context += f"- Prix moyen Vinted pour '{keywords}': {vinted_avg['avg_price']} EUR (basé sur {vinted_avg['count']} annonces).\n"
+    else:
+        market_context += "- Prix moyen Vinted: Inconnu.\n"
+        
+    # Composants Aliexpress
+    components = db.get_all_component_prices()
+    if components:
+        market_context += "- Prix moyens des pièces de rechange (Aliexpress) :\n"
+        for comp, p in components.items():
+            market_context += f"  * {comp.title()}: {p} EUR\n"
+    market_context += "----------------------------------------------\n"
+    
+    # -------------------------------------
+    
     prompt = f"""
 Titre de l'annonce : {titre}
 Prix demandé : {prix}
@@ -56,9 +83,9 @@ Description :
 Réponds UNIQUEMENT avec un objet JSON valide, sans markdown autour.
 Structure attendue :
 {{
-  "is_semantic_match": true ou false,
+  "is_semantic_match": true ou false (true SI c'est une console/manette/smartphone, false SEULEMENT si c'est un vêtement, jeu vidéo physique, peluche, accessoire inutile, etc. La rentabilité ne doit pas influencer ce champ),
   "confidence_score": entier entre 0 et 100,
-  "recommandation": "🟢 FONCE", "🟠 RISQUÉ", ou "🔴 À FUIR",
+  "recommandation": "FONCE", "RISQUE", ou "A FUIR",
   "category_detected": "Ex: Console, Smartphone...",
   "financial_estimation": {{
     "estimated_resale_value_euros": entier,
@@ -100,6 +127,17 @@ Structure attendue :
                 
                 try:
                     data = json.loads(raw_text)
+                    
+                    # Sauvegarder les nouvelles pièces estimées
+                    new_pieces = data.get("nouvelles_pieces_estimees", {})
+                    if isinstance(new_pieces, dict):
+                        for piece, price in new_pieces.items():
+                            try:
+                                db.add_component_price(piece, float(price), "IA-JIT")
+                                print(f"[Gemini] Nouvelle pièce sauvegardée : {piece} à {price}€")
+                            except Exception as db_err:
+                                print(f"[Gemini] Erreur sauvegarde pièce : {db_err}")
+                                
                     return data
                 except json.JSONDecodeError as e:
                     print(f"[Gemini] Erreur de parsing JSON : {e}")

@@ -8,6 +8,8 @@ import random
 from dotenv import load_dotenv
 from utils.vinted import vinted_client
 import utils.gemini as gemini
+import utils.database as db
+from discord.ext import tasks
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -125,6 +127,7 @@ class VintedBot(commands.Bot):
             price = item.get("price", {}).get("amount", "N/A")
             currency = item.get("price", {}).get("currency_code", "EUR")
             item_url = item.get("url", "https://www.vinted.fr")
+            db.add_vinted_item(item_id, title, f"{price} {currency}")
             brand = item.get("brand_title", "")
             photo_url = ""
             if "photo" in item and item["photo"]:
@@ -144,15 +147,15 @@ class VintedBot(commands.Bot):
                 print(f"[Filtre] Match Sémantique = False pour {item_url}")
                 return
             
-            recommandation = analysis.get("recommandation", "🔴 À FUIR")
-            if recommandation == "🔴 À FUIR":
+            recommandation = analysis.get("recommandation", "À FUIR")
+            if recommandation == "À FUIR":
                 print(f"[Filtre] Recommandation À FUIR pour {item_url}")
                 return
             
             score = analysis.get("confidence_score", 0)
             embed_title = f"{recommandation} | Score : {score}/100"
             
-            color = discord.Color.green() if "🟢" in recommandation else discord.Color.orange()
+            color = discord.Color.green() if "" in recommandation else discord.Color.orange()
             
             main_embed = discord.Embed(
                 title=embed_title,
@@ -173,9 +176,9 @@ class VintedBot(commands.Bot):
             green_flags = analysis.get("green_flags", [])
             
             if green_flags:
-                main_embed.add_field(name="Points Positifs 🟢", value="\n".join([f"- {f}" for f in green_flags]), inline=False)
+                main_embed.add_field(name="Points Positifs", value="\n".join([f"- {f}" for f in green_flags]), inline=False)
             if red_flags:
-                main_embed.add_field(name="Points Négatifs 🔴", value="\n".join([f"- {f}" for f in red_flags]), inline=False)
+                main_embed.add_field(name="Points Négatifs", value="\n".join([f"- {f}" for f in red_flags]), inline=False)
                 
             repairs = analysis.get("repairs_needed", [])
             if repairs:
@@ -195,7 +198,7 @@ class VintedBot(commands.Bot):
         except Exception as e:
             print(f"Erreur process_item_async: {e}")
 
-    async def send_to_subscribers(self, search_url, embeds):    async def send_to_subscribers(self, search_url, embeds):
+    async def send_to_subscribers(self, search_url, embeds):
         for user_id_str, user_urls in config_surveillances.items():
             if search_url in user_urls:
                 try:
@@ -210,6 +213,9 @@ bot = VintedBot()
 
 @bot.event
 async def on_ready():
+    db.init_db()
+    db.clean_old_vinted_items()
+
     print(f"Bot connecté en tant que {bot.user}")
 
 @bot.tree.command(name="ping", description="Vérifie si le bot VintedBot est en ligne")
@@ -302,10 +308,20 @@ async def setprompt(interaction: discord.Interaction, fichier: discord.Attachmen
         return
         
     await fichier.save("critere.md")
-    await interaction.response.send_message("✅ Fichier `critere.md` mis à jour avec succès ! L'IA utilisera ce nouveau prompt à partir de maintenant.", ephemeral=True)
+    await interaction.response.send_message("Fichier `critere.md` mis à jour avec succès ! L'IA utilisera ce nouveau prompt à partir de maintenant.", ephemeral=True)
+
+@bot.tree.command(name="getprompt", description="Affiche le prompt IA (critere.md) actuellement utilisé par le bot")
+async def getprompt(interaction: discord.Interaction):
+    import os
+    if os.path.exists("critere.md"):
+        await interaction.response.send_message("Voici le prompt actuellement injecté à l'IA :", file=discord.File("critere.md"), ephemeral=True)
+    else:
+        await interaction.response.send_message("Aucun prompt personnalisé n'est défini (le fichier critere.md est introuvable).", ephemeral=True)
 
 if __name__ == "__main__":
     if not TOKEN:
         print("Erreur: DISCORD_BOT_TOKEN manquant dans le fichier .env")
     else:
         bot.run(TOKEN)
+
+
