@@ -21,3 +21,7 @@
 ## [Unreleased]
 ### Changed
 - Switched AliExpress component price scraping from Daily Cron Job to Single-Call JIT (Just-In-Time) evaluation. Gemini now estimates missing or stale (>14 days) component prices on the fly during the final verdict analysis and automatically persists them into SQLite.
+
+## [Unreleased]
+### Added
+- Added Keep-Alive web server via aiohttp for Render.com hosting compatibility.

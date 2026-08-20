@@ -21,6 +21,8 @@ RUN apt-get update && \
 # Copie du reste du code source
 COPY . .
 
+EXPOSE 8080
+
 # On rend le script d'entrée exécutable
 RUN chmod +x entrypoint.sh
 

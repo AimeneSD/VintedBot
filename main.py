@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from utils.vinted import vinted_client
 import utils.gemini as gemini
 import utils.database as db
+import utils.keep_alive as keep_alive
 from discord.ext import tasks
 
 # Charger les variables d'environnement
@@ -215,6 +216,9 @@ bot = VintedBot()
 async def on_ready():
     db.init_db()
     db.clean_old_vinted_items()
+    
+    # Lancement du serveur web pour Render
+    bot.loop.create_task(keep_alive.start_server())
 
     print(f"Bot connecté en tant que {bot.user}")
 

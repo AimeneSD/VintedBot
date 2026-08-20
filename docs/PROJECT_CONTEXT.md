@@ -1,7 +1,8 @@
 # Contexte du Projet VintedBot
 
 ## Architecture Générale
-- **Bot Discord (`main.py`)** : Gère l'interface Discord, la surveillance en temps réel (boucle de sniping via asyncio), et les commandes.
+- **Bot Discord (`main.py`)** : Gère l'interface Discord, la surveillance en temps réel (boucle de sniping via asyncio), et les commandes. Inclut également un lancement en arrière-plan d'un serveur Web fantôme (`keep_alive.py`).
+- **Serveur Keep-Alive (`utils/keep_alive.py`)** : Mini-serveur web (aiohttp) exposé sur le port 8080 (ou $PORT) permettant au bot d'être hébergé sur des plateformes Cloud comme Render.com en tant que Web Service sans être interrompu.
 - **Client Vinted (`utils/vinted.py`)** : Gère les requêtes vers l'API Vinted. Implémente le contournement du blocage Cloudflare en téléchargeant le code HTML brut de l'annonce pour y extraire la description avec Regex.
 - **Analyse IA (`utils/gemini.py`)** : Utilise Google Gemini (Flash) pour analyser la description et le titre, extraire la rentabilité, estimer les coûts de réparation, et filtrer sémantiquement selon les règles définies dans `critere.md`.
 - **Mémoire & Contexte de Marché (`utils/database.py`)** : Base SQLite locale (`market_data.db`). Stocke en continu toutes les annonces Vinted (avec politique de suppression > 3 semaines) et les prix des composants (récupérés automatiquement via Cron Job).
