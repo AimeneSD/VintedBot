@@ -134,10 +134,12 @@ class VintedBot(commands.Bot):
             if "photo" in item and item["photo"]:
                 photo_url = item["photo"].get("url", "")
                 
+            status = item.get("status", "Inconnu")
             item_data = {
                 "title": title,
                 "description": description_raw,
-                "price": f"{price} {currency}"
+                "price": f"{price} {currency}",
+                "condition": status
             }
             
             analysis = await gemini.analyze_item_async(item_data)

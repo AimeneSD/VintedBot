@@ -47,6 +47,7 @@ def analyze_item(item_data, max_retries=3):
     titre = item_data.get("title", "Sans titre")
     description = item_data.get("description", "Sans description")
     prix = item_data.get("price", "Inconnu")
+    etat = item_data.get("condition", "Inconnu")
     
     # --- CONTEXTE MARCHÉ DEPUIS SQLITE ---
     market_context = "\n\n--- INFO MARCHÉ (Base de données locale) ---\n"
@@ -76,6 +77,7 @@ def analyze_item(item_data, max_retries=3):
     
     prompt = f"""
 Titre de l'annonce : {titre}
+État : {etat}
 Prix demandé : {prix}
 Description :
 {description}
