@@ -1,4 +1,5 @@
 import aiohttp
+from aiohttp_socks import ProxyConnector
 import asyncio
 import urllib.parse
 from typing import Optional, List, Dict, Any
@@ -16,7 +17,8 @@ class VintedClient:
 
     async def _init_session(self):
         if not self.session:
-            self.session = aiohttp.ClientSession(headers=HEADERS)
+            connector = ProxyConnector.from_url('socks5://127.0.0.1:1080')
+            self.session = aiohttp.ClientSession(connector=connector, headers=HEADERS)
             
         if not self.cookie_valid:
             try:

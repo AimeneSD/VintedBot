@@ -25,3 +25,7 @@
 ## [Unreleased]
 ### Added
 - Added Keep-Alive web server via aiohttp for Render.com hosting compatibility.
+
+## [Unreleased]
+### Fixed
+- Wireproxy VPN connection now correctly utilized by aiohttp in vinted.py via aiohttp-socks.
