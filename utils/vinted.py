@@ -65,21 +65,28 @@ class VintedClient:
             return []
 
     async def get_item_description(self, item_id: str) -> str:
-        """Recupere la description via le nouvel endpoint de plugins"""
+        """Recupere la description depuis le HTML de la page web"""
         await self._init_session()
         if not self.cookie_valid:
             return ""
             
-        api_url = f"https://api.vinted.fr/item-details/plugins/{item_id}/translatable?localize=false"
+        url = f"https://www.vinted.fr/items/{item_id}"
         try:
-            async with self.session.get(api_url, timeout=5) as resp:
+            async with self.session.get(url, timeout=10) as resp:
                 if resp.status == 200:
-                    data = await resp.json()
-                    for plugin in data.get("plugins", []):
-                        if plugin.get("name") == "description":
-                            return plugin.get("data", {}).get("description", "")
+                    html = await resp.text()
+                    import re
+                    import json
+                    match = re.search(r'"description":"(.*?)"', html)
+                    if match:
+                        try:
+                            # unescape json
+                            desc = json.loads('"' + match.group(1) + '"')
+                            return desc
+                        except:
+                            return match.group(1)
         except Exception as e:
-            pass
+            print(f"[VintedClient] Erreur description {item_id}: {e}")
         return ""
 
     async def get_user_info(self, user_id: str) -> Dict[str, Any]:
