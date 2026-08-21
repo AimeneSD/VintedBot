@@ -2,10 +2,10 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import os
-from utils.config import load_config, save_config
+import utils.database as db
 
 async def autocomplete_vinted_urls(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
-    config_surveillances = load_config()
+    config_surveillances = await db.load_config()
     user_id = str(interaction.user.id)
     urls = config_surveillances.get(user_id, [])
     matches = [(str(i), u) for i, u in enumerate(urls) if current.lower() in u.lower()]
@@ -29,7 +29,7 @@ class CommandsCog(commands.Cog):
     @app_commands.command(name="vinted_add", description="Ajoute une recherche Vinted à surveiller via son URL")
     @app_commands.describe(url="L'URL de ta recherche (ex: https://www.vinted.fr/catalog?...)")
     async def vinted_add(self, interaction: discord.Interaction, url: str):
-        config_surveillances = load_config()
+        config_surveillances = await db.load_config()
         user_id = str(interaction.user.id)
         
         if "vinted." not in url:
@@ -44,7 +44,7 @@ class CommandsCog(commands.Cog):
             return
             
         config_surveillances[user_id].append(url)
-        save_config(config_surveillances)
+        await db.save_config(config_surveillances)
         
         await interaction.response.send_message(
             f"**Surveillance Vinted ajoutée avec succès !**\n"
@@ -55,7 +55,7 @@ class CommandsCog(commands.Cog):
 
     @app_commands.command(name="vinted_list", description="Affiche la liste de tes surveillances Vinted actives")
     async def vinted_list(self, interaction: discord.Interaction):
-        config_surveillances = load_config()
+        config_surveillances = await db.load_config()
         user_id = str(interaction.user.id)
         urls = config_surveillances.get(user_id, [])
         
@@ -73,7 +73,7 @@ class CommandsCog(commands.Cog):
     @app_commands.describe(url_index="Choisis l'URL de la surveillance à supprimer dans la liste")
     @app_commands.autocomplete(url_index=autocomplete_vinted_urls)
     async def vinted_remove(self, interaction: discord.Interaction, url_index: str):
-        config_surveillances = load_config()
+        config_surveillances = await db.load_config()
         user_id = str(interaction.user.id)
         urls = config_surveillances.get(user_id, [])
         
@@ -81,14 +81,14 @@ class CommandsCog(commands.Cog):
             index = int(url_index)
             if 0 <= index < len(urls):
                 removed_url = urls.pop(index)
-                save_config(config_surveillances)
+                await db.save_config(config_surveillances)
                 await interaction.response.send_message(f"**Surveillance supprimée avec succès.**\nURL retirée : <{removed_url}>", ephemeral=True)
             else:
                 await interaction.response.send_message("L'index fourni est invalide.", ephemeral=True)
         except ValueError:
             if url_index in urls:
                 urls.remove(url_index)
-                save_config(config_surveillances)
+                await db.save_config(config_surveillances)
                 await interaction.response.send_message("**Surveillance supprimée avec succès.**", ephemeral=True)
             else:
                 await interaction.response.send_message("Sélection invalide.", ephemeral=True)

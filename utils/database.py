@@ -1,101 +1,117 @@
-import sqlite3
-import datetime
 import os
+import aiomysql
+import json
+from dotenv import load_dotenv
 
-DB_PATH = "market_data.db"
+load_dotenv()
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    # Table pour l'historique Vinted (suppression des items > 3 semaines)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS vinted_items (
-            id TEXT PRIMARY KEY,
-            title TEXT,
-            price REAL,
-            currency TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+DB_HOST = os.getenv("DB_HOST", "mysql-aimene.alwaysdata.net")
+DB_USER = os.getenv("DB_USER", "aimene")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_NAME = os.getenv("DB_NAME", "aimene_vinted")
+
+async def get_pool():
+    if not hasattr(get_pool, "pool") or get_pool.pool is None:
+        get_pool.pool = await aiomysql.create_pool(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            db=DB_NAME,
+            autocommit=True,
+            pool_recycle=3600
         )
-    ''')
-    
-    # Table pour les prix des composants (Aliexpress/Amazon)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS component_prices (
-            component_name TEXT PRIMARY KEY,
-            average_price REAL,
-            source TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
+    return get_pool.pool
 
-def clean_old_vinted_items():
-    """Supprime les annonces de plus de 3 semaines (21 jours)"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    three_weeks_ago = datetime.datetime.now() - datetime.timedelta(days=21)
-    cursor.execute('DELETE FROM vinted_items WHERE timestamp < ?', (three_weeks_ago.strftime('%Y-%m-%d %H:%M:%S'),))
-    conn.commit()
-    conn.close()
+async def init_db():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            # Table pour éviter les doublons d'envoi discord
+            await cur.execute('''
+                CREATE TABLE IF NOT EXISTS vinted_items (
+                    id VARCHAR(255) PRIMARY KEY,
+                    title TEXT,
+                    price VARCHAR(50),
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            # Table pour les configurations de surveillances
+            await cur.execute('''
+                CREATE TABLE IF NOT EXISTS surveillances (
+                    user_id VARCHAR(255),
+                    url TEXT,
+                    UNIQUE KEY user_url (user_id, url(255))
+                )
+            ''')
+            # Table pour le cache des urls pour le sniper
+            await cur.execute('''
+                CREATE TABLE IF NOT EXISTS cache_vinted (
+                    url VARCHAR(767) PRIMARY KEY,
+                    item_ids JSON
+                )
+            ''')
 
-def add_vinted_item(item_id, title, price_str):
-    try:
-        # Nettoyage du prix (ex: "15.0 EUR" -> 15.0)
-        price_val = float(''.join(c for c in price_str.split()[0] if c.isdigit() or c == '.'))
-        currency = price_str.split()[1] if len(price_str.split()) > 1 else "EUR"
-    except:
-        price_val = 0.0
-        currency = "EUR"
-        
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT OR REPLACE INTO vinted_items (id, title, price, currency, timestamp)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (str(item_id), title, price_val, currency, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-    conn.commit()
-    conn.close()
+async def clean_old_vinted_items():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute("DELETE FROM vinted_items WHERE timestamp <= DATE_SUB(NOW(), INTERVAL 30 DAY)")
 
-def get_average_vinted_price(keywords):
-    """Calcule le prix moyen sur les annonces Vinted correspondantes"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    # Recherche naïve par mots clés (ex: "%ps5%")
-    query = "SELECT AVG(price), COUNT(id) FROM vinted_items WHERE "
-    conditions = []
-    for kw in keywords.split():
-        conditions.append("title LIKE ?")
-    
-    query += " AND ".join(conditions)
-    params = [f"%{kw}%" for kw in keywords.split()]
-    
-    cursor.execute(query, params)
-    result = cursor.fetchone()
-    conn.close()
-    
-    if result and result[1] > 0:
-        return {"avg_price": round(result[0], 2), "count": result[1]}
-    return None
+async def add_vinted_item(item_id: str, title: str, price: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "INSERT IGNORE INTO vinted_items (id, title, price) VALUES (%s, %s, %s)",
+                (item_id, title, price)
+            )
 
-def add_component_price(name, price, source="IA"):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT OR REPLACE INTO component_prices (component_name, average_price, source, timestamp)
-        VALUES (?, ?, ?, ?)
-    ''', (name.lower(), price, source, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-    conn.commit()
-    conn.close()
+async def load_config():
+    pool = await get_pool()
+    config = {}
+    async with pool.acquire() as conn:
+        async with conn.cursor(aiomysql.DictCursor) as cur:
+            await cur.execute("SELECT user_id, url FROM surveillances")
+            rows = await cur.fetchall()
+            for row in rows:
+                uid = row["user_id"]
+                url = row["url"]
+                if uid not in config:
+                    config[uid] = []
+                config[uid].append(url)
+    return config
 
-def get_all_component_prices():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    two_weeks_ago = datetime.datetime.now() - datetime.timedelta(days=14)
-    cursor.execute('SELECT component_name, average_price FROM component_prices WHERE timestamp >= ?', (two_weeks_ago.strftime('%Y-%m-%d %H:%M:%S'),))
-    results = cursor.fetchall()
-    conn.close()
-    return {row[0]: row[1] for row in results}
+async def save_config(config):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            # Pour faire simple on clear la table et on reinstert (car petite config)
+            await cur.execute("TRUNCATE TABLE surveillances")
+            for uid, urls in config.items():
+                for url in urls:
+                    await cur.execute(
+                        "INSERT IGNORE INTO surveillances (user_id, url) VALUES (%s, %s)",
+                        (uid, url)
+                    )
+
+async def load_known_items():
+    pool = await get_pool()
+    cache = {}
+    async with pool.acquire() as conn:
+        async with conn.cursor(aiomysql.DictCursor) as cur:
+            await cur.execute("SELECT url, item_ids FROM cache_vinted")
+            rows = await cur.fetchall()
+            for row in rows:
+                cache[row["url"]] = json.loads(row["item_ids"])
+    return cache
+
+async def save_known_items(cache):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            for url, item_ids in cache.items():
+                ids_json = json.dumps(item_ids)
+                await cur.execute(
+                    "INSERT INTO cache_vinted (url, item_ids) VALUES (%s, %s) ON DUPLICATE KEY UPDATE item_ids=VALUES(item_ids)",
+                    (url, ids_json)
+                )

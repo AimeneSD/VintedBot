@@ -21,9 +21,9 @@ class VintedBot(commands.Bot):
         await self.tree.sync()
         print("Commandes Slash synchronisées globalement")
         
-        # Initialisations qui ne doivent se lancer qu'une seule fois
-        db.init_db()
-        db.clean_old_vinted_items()
+        # Initialisation asynchrone MySQL
+        await db.init_db()
+        await db.clean_old_vinted_items()
         
         # Lancement du serveur web pour Render
         self.loop.create_task(keep_alive.start_server())

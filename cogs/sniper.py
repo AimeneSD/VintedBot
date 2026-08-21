@@ -4,7 +4,6 @@ import asyncio
 import random
 import utils.gemini as gemini
 from utils.vinted import vinted_client
-from utils.config import load_config, load_known_items, save_known_items
 import utils.database as db
 
 class VintedItemView(discord.ui.View):
@@ -15,7 +14,6 @@ class VintedItemView(discord.ui.View):
 class SniperCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.known_items = load_known_items()
         self.loop_task = bot.loop.create_task(self.vinted_sniper_loop())
 
     def cog_unload(self):
@@ -28,40 +26,45 @@ class SniperCog(commands.Cog):
             delay = random.uniform(5, 8)
             await asyncio.sleep(delay)
             
-            config_surveillances = load_config()
-            all_urls = set()
-            for urls in config_surveillances.values():
-                for u in urls:
-                    all_urls.add(u)
-                    
-            for url in all_urls:
-                try:
-                    items = await vinted_client.search(url)
-                    if not items:
-                        continue
+            try:
+                config_surveillances = await db.load_config()
+                known_items = await db.load_known_items()
+                
+                all_urls = set()
+                for urls in config_surveillances.values():
+                    for u in urls:
+                        all_urls.add(u)
                         
-                    if url not in self.known_items:
-                        self.known_items[url] = []
-                        for item in items:
-                            self.known_items[url].append(item['id'])
-                        save_known_items(self.known_items)
-                        continue
-                        
-                    new_items = []
-                    for item in items:
-                        if item['id'] not in self.known_items[url]:
-                            new_items.append(item)
-                            self.known_items[url].append(item['id'])
-                    
-                    if new_items:
-                        self.known_items[url] = self.known_items[url][-100:]
-                        save_known_items(self.known_items)
-                        
-                        for item in new_items:
-                            self.bot.loop.create_task(self.process_item_async(item, url))
+                for url in all_urls:
+                    try:
+                        items = await vinted_client.search(url)
+                        if not items:
+                            continue
                             
-                except Exception as e:
-                    print(f"Erreur lors de la verification de l'URL {url}: {e}")
+                        if url not in known_items:
+                            known_items[url] = []
+                            for item in items:
+                                known_items[url].append(item['id'])
+                            await db.save_known_items({url: known_items[url]})
+                            continue
+                            
+                        new_items = []
+                        for item in items:
+                            if item['id'] not in known_items[url]:
+                                new_items.append(item)
+                                known_items[url].append(item['id'])
+                        
+                        if new_items:
+                            known_items[url] = known_items[url][-100:]
+                            await db.save_known_items({url: known_items[url]})
+                            
+                            for item in new_items:
+                                self.bot.loop.create_task(self.process_item_async(item, url))
+                                
+                    except Exception as e:
+                        print(f"Erreur lors de la verification de l'URL {url}: {e}")
+            except Exception as e:
+                print(f"Erreur boucle générale: {e}")
 
     async def process_item_async(self, item, search_url):
         try:
@@ -86,7 +89,7 @@ class SniperCog(commands.Cog):
             price = item.get("price", {}).get("amount", "N/A")
             currency = item.get("price", {}).get("currency_code", "EUR")
             item_url = item.get("url", "https://www.vinted.fr")
-            db.add_vinted_item(item_id, title, f"{price} {currency}")
+            await db.add_vinted_item(item_id, title, f"{price} {currency}")
             brand = item.get("brand_title", "")
             photo_url = ""
             if "photo" in item and item["photo"]:
@@ -160,7 +163,7 @@ class SniperCog(commands.Cog):
             print(f"Erreur process_item_async: {e}")
 
     async def send_to_subscribers(self, search_url, embeds):
-        config_surveillances = load_config()
+        config_surveillances = await db.load_config()
         for user_id_str, user_urls in config_surveillances.items():
             if search_url in user_urls:
                 try:

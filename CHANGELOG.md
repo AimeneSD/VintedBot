@@ -29,3 +29,7 @@
 ## [Unreleased]
 ### Fixed
 - Wireproxy VPN connection now correctly utilized by aiohttp in vinted.py via aiohttp-socks.
+
+## [Unreleased]
+### Changed
+- Migrated local SQLite and JSON storage to remote async MySQL (Alwaysdata) for full cloud persistence on Render.
