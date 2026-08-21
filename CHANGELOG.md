@@ -36,3 +36,12 @@
 
 ### Added
 - Multimodal Vision AI: Gemini now verifies item images for 'FONCE' and 'RISQUÉ' recommendations to prevent false positives (e.g. missing shells, broken parts).
+
+
+## [Unreleased]
+### Added
+- Added Gemini Model Rotation (pooling free tier quotas for 65 RPM capacity).
+- Added Fast Checkout link (1-Click buy) in Discord embed to save seconds.
+- Added estimated total price calculation (including shipping and protection fees) for accurate AI profitability parsing.
+### Changed
+- Updated AI rules to not flag abnormally low prices as scams, enabling aggressive sniper behavior.
