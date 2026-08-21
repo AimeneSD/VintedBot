@@ -39,9 +39,14 @@ def analyze_item(item_data, max_retries=3):
     system_prompt = get_system_prompt()
     
     fallback_models = [
-        "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
-        "gemini-1.5-flash",
+        "gemini-3.5-flash-lite", # 15 RPM
+        "gemini-3.1-flash-lite", # 15 RPM
+        "gemini-2.5-flash-lite", # 10 RPM
+        "gemini-3.7-flash",      # 5 RPM
+        "gemini-3.6-flash",      # 5 RPM
+        "gemini-3.5-flash",      # 5 RPM
+        "gemini-3-flash",        # 5 RPM
+        "gemini-2.5-flash"       # 5 RPM
     ]
     
     titre = item_data.get("title", "Sans titre")
@@ -185,16 +190,37 @@ Si l'image révèle un vice rédhibitoire (comme une coque complètement manquan
 Sinon, conserve ou affine la recommandation, et ajoute tes observations visuelles dans "red_flags" ou "green_flags".
 Réponds UNIQUEMENT avec un objet JSON valide reprenant exactement la même structure que l'analyse préliminaire, mais mis à jour avec tes observations visuelles.
 """
-    try:
-        response = await get_client().aio.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=[
-                prompt,
-                types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg')
-            ]
-        )
-        response_text = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(response_text)
-    except Exception as e:
-        print(f"[Gemini] Erreur lors de l'analyse visuelle : {e}")
-        return previous_analysis
+    fallback_models = [
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-3-flash",
+        "gemini-2.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite"
+    ]
+    
+    for model in fallback_models:
+        try:
+            response = await get_client().aio.models.generate_content(
+                model=model,
+                contents=[
+                    prompt,
+                    types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg')
+                ]
+            )
+            response_text = response.text.replace("```json", "").replace("```", "").strip()
+            return json.loads(response_text)
+        except APIError as e:
+            if e.code == 429:
+                print(f"[Vision] Quota épuisé pour {model}. Essai du modèle suivant...")
+                continue
+            else:
+                print(f"[Vision] Erreur API avec {model} : {e}")
+                continue
+        except Exception as e:
+            print(f"[Vision] Erreur inattendue avec {model} : {e}")
+            continue
+            
+    print("[Vision] Tous les quotas des modèles sont épuisés !")
+    return previous_analysis
