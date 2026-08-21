@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  crousbot:
+    build: .
+    container_name: crousbot
+    restart: unless-stopped
+    # On monte les fichiers JSON et la configuration VPN
+    volumes:
+      - ./config_surveillance.json:/app/config_surveillance.json
+      - ./offres_connues.json:/app/offres_connues.json
+      - ./sessions.json:/app/sessions.json
+      - ./villes_crous.json:/app/villes_crous.json
+      - ./wg0.conf:/etc/wireguard/wg0.conf
+    # On charge les variables d'environnement (le Token) depuis le fichier .env
+    env_file:
+      - .env
