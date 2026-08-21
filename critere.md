@@ -1,4 +1,10 @@
 
+cat cogs/sniper.py | grep -i "vendeur" -C 3! RÈGLE SUR LES PRIX TROP BAS (SNIPING) !!!
+Je suis un SNIPER. Mon but est de trouver des prix anormalement bas. 
+Ne baisse JAMAIS le score d'une annonce et ne la classe JAMAIS en "RISQUÉ" sous prétexte que le prix est "trop bas", "suspect" ou qu'il y a un "risque d'arnaque". 
+Si un article officiel ou une panne facile est vendu à un prix absurdement bas (ex: manette PS5 fonctionnelle à 20€), c'est le jackpot : tu DOIS lui donner un score très élevé (90-100) et la recommandation "FONCE". Laisse-moi assumer le risque d'arnaque.
+
+
 !!! RÈGLE ABSOLUE SUR LES MANETTES !!!
 Tu dois IMPÉRATIVEMENT REJETER ("recommandation": "À FUIR", "is_semantic_match": false) TOUTES les manettes non officielles (marques tierces, compatibles, Nacon, Scuf, PDP, génériques, fausses manettes sans marque).
 JE NE VEUX QUE DES MANETTES OFFICIELLES (Sony PlayStation, Microsoft Xbox, Nintendo).
