@@ -96,10 +96,23 @@ class SniperCog(commands.Cog):
                 photo_url = item["photo"].get("url", "")
                 
             status = item.get("status", "Inconnu")
+            
+            # Calcul des frais Vinted (Protection + Port)
+            total_price_str = f"{price} {currency}"
+            total_price_val = None
+            try:
+                base_price = float(price)
+                protection_fee = 0.70 + (base_price * 0.05)
+                shipping_fee = 3.50 # Moyenne basse
+                total_price_val = round(base_price + protection_fee + shipping_fee, 2)
+                total_price_str = f"{total_price_val} {currency}"
+            except Exception:
+                pass
+                
             item_data = {
                 "title": title,
                 "description": description_raw,
-                "price": f"{price} {currency}",
+                "price": f"{price} {currency} (PRIX TOTAL AVEC FRAIS DE PORT ET PROTECTION: {total_price_str})",
                 "condition": status
             }
             
@@ -141,7 +154,10 @@ class SniperCog(commands.Cog):
                 color=color
             )
             
-            main_embed.add_field(name="Prix", value=f"**{price} {currency}**", inline=True)
+            if total_price_val:
+                main_embed.add_field(name="Prix (avec frais)", value=f"**~{total_price_val} {currency}**", inline=True)
+            else:
+                main_embed.add_field(name="Prix affiché", value=f"**{price} {currency}**", inline=True)
             if brand:
                 main_embed.add_field(name="Marque", value=brand, inline=True)
                 
