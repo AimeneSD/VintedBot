@@ -112,6 +112,19 @@ class SniperCog(commands.Cog):
                 return
             
             recommandation = analysis.get("recommandation", "À FUIR")
+            
+            # --- DOUBLE FILTRE : VISION IA ---
+            if recommandation in ["FONCE", "RISQUÉ"] and photo_url:
+                print(f"[Vision] Déclenchement de l'analyse visuelle pour {item_url}...")
+                image_bytes = await vinted_client.download_image(photo_url)
+                if image_bytes:
+                    analysis = await gemini.verify_image_async(image_bytes, analysis)
+                    # Mise à jour des variables après vision
+                    recommandation = analysis.get("recommandation", "À FUIR")
+                    if not analysis.get("is_semantic_match", True):
+                        print(f"[Filtre Vision] Match Sémantique annulé par l'image pour {item_url}")
+                        return
+            
             if recommandation == "À FUIR":
                 print(f"[Filtre] Recommandation À FUIR pour {item_url}")
                 return

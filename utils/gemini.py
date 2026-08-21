@@ -162,3 +162,38 @@ Structure attendue :
                     
     print("[Gemini] Tous les modèles de fallback ont échoué.")
     return None
+
+
+async def verify_image_async(image_bytes: bytes, previous_analysis: dict) -> dict:
+    """Deuxième passe : analyse visuelle de l'image pour confirmer/infirmer le texte."""
+    if not image_bytes:
+        return previous_analysis
+        
+    prompt = f"""Tu es un expert en réparation d'électronique et consoles.
+Voici l'analyse textuelle préliminaire d'une annonce Vinted :
+{json.dumps(previous_analysis, indent=2, ensure_ascii=False)}
+
+TA TÂCHE :
+Examine attentivement l'image jointe à cette annonce. Confirme-t-elle l'analyse textuelle ?
+Vois-tu des vices cachés graves non mentionnés qui rendraient l'objet inutilisable ou non réparable (ex: carte mère à nue sans coque, produit cassé en deux, oxydation majeure) ?
+
+Si l'image révèle un vice rédhibitoire (comme une coque complètement manquante sur une manette), TU DOIS forcer :
+"recommandation": "À FUIR"
+"is_semantic_match": false
+
+Sinon, conserve ou affine la recommandation, et ajoute tes observations visuelles dans "red_flags" ou "green_flags".
+Réponds UNIQUEMENT avec un objet JSON valide reprenant exactement la même structure que l'analyse préliminaire, mais mis à jour avec tes observations visuelles.
+"""
+    try:
+        response = await get_client().aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[
+                prompt,
+                types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg')
+            ]
+        )
+        response_text = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(response_text)
+    except Exception as e:
+        print(f"[Gemini] Erreur lors de l'analyse visuelle : {e}")
+        return previous_analysis
