@@ -187,7 +187,7 @@ Réponds UNIQUEMENT avec un objet JSON valide reprenant exactement la même stru
 """
     try:
         response = await get_client().aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=[
                 prompt,
                 types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg')
