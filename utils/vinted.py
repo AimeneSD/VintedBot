@@ -111,8 +111,6 @@ class VintedClient:
         if self.session:
             await self.session.close()
 
-vinted_client = VintedClient()
-
     async def download_image(self, url: str) -> bytes:
         """Télécharge une image en RAM"""
         await self._init_session()
@@ -126,3 +124,5 @@ vinted_client = VintedClient()
         except Exception as e:
             print(f"[VintedClient] Erreur telechargement image: {e}")
         return b""
+
+vinted_client = VintedClient()
