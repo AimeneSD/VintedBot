@@ -115,3 +115,11 @@ async def save_known_items(cache):
                     "INSERT INTO cache_vinted (url, item_ids) VALUES (%s, %s) ON DUPLICATE KEY UPDATE item_ids=VALUES(item_ids)",
                     (url, ids_json)
                 )
+
+
+# --- STUBS POUR EVITER LES CRASHS (A implémenter plus tard si besoin) ---
+def get_average_vinted_price(keywords):
+    return None
+
+def get_all_component_prices():
+    return None
