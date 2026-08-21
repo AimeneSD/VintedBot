@@ -33,3 +33,6 @@
 ## [Unreleased]
 ### Changed
 - Migrated local SQLite and JSON storage to remote async MySQL (Alwaysdata) for full cloud persistence on Render.
+
+### Added
+- Multimodal Vision AI: Gemini now verifies item images for 'FONCE' and 'RISQUÉ' recommendations to prevent false positives (e.g. missing shells, broken parts).
