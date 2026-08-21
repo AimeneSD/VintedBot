@@ -137,7 +137,7 @@ class SniperCog(commands.Cog):
             main_embed = discord.Embed(
                 title=embed_title,
                 url=item_url,
-                description=title,
+                description=f"**{title}**\n\n💳 **[ACHETER EN 1 CLIC (Fast Checkout)](https://www.vinted.fr/transaction/buy/new?source_screen=item&transaction%5Bitem_id%5D={item_id})**",
                 color=color
             )
             
