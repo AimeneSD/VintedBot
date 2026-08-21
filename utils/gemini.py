@@ -176,6 +176,7 @@ Voici l'analyse textuelle préliminaire d'une annonce Vinted :
 TA TÂCHE :
 Examine attentivement l'image jointe à cette annonce. Confirme-t-elle l'analyse textuelle ?
 Vois-tu des vices cachés graves non mentionnés qui rendraient l'objet inutilisable ou non réparable (ex: carte mère à nue sans coque, produit cassé en deux, oxydation majeure) ?
+ATTENTION PARTICULIÈRE POUR LES MANETTES : Vérifie VISUELLEMENT que la manette est bien une manette OFFICIELLE (présence du logo PlayStation sur le bouton PS, logo Xbox, logo Nintendo). Si l'image montre une manette générique, tierce, ou une contrefaçon évidente sans le logo officiel de la marque, c'est un vice rédhibitoire.
 
 Si l'image révèle un vice rédhibitoire (comme une coque complètement manquante sur une manette), TU DOIS forcer :
 "recommandation": "À FUIR"
