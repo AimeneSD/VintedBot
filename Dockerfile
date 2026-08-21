@@ -22,7 +22,6 @@ COPY CrousBot /app/CrousBot
 
 # Copy root entrypoint and config
 COPY entrypoint.sh /app/
-COPY wg0.conf /app/
 
 RUN chmod +x /app/entrypoint.sh
 
