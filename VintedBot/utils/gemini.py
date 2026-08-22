@@ -41,12 +41,9 @@ def analyze_item(item_data, max_retries=3):
     fallback_models = [
         "gemini-3.5-flash-lite", # 15 RPM
         "gemini-3.1-flash-lite", # 15 RPM
-        "gemini-2.5-flash-lite", # 10 RPM
         "gemini-3.7-flash",      # 5 RPM
         "gemini-3.6-flash",      # 5 RPM
-        "gemini-3.5-flash",      # 5 RPM
-        "gemini-3-flash",        # 5 RPM
-        "gemini-2.5-flash"       # 5 RPM
+        "gemini-3.5-flash"       # 5 RPM
     ]
     
     titre = item_data.get("title", "Sans titre")
@@ -194,8 +191,6 @@ Réponds UNIQUEMENT avec un objet JSON valide reprenant exactement la même stru
         "gemini-3.7-flash",
         "gemini-3.6-flash",
         "gemini-3.5-flash",
-        "gemini-3-flash",
-        "gemini-2.5-flash",
         "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite"
     ]
