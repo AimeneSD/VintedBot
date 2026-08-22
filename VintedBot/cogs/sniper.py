@@ -121,7 +121,8 @@ class SniperCog(commands.Cog):
             if analysis is None:
                 return
             if not analysis.get("is_semantic_match", True):
-                print(f"[Filtre] Match Sémantique = False pour {item_url}")
+                category = analysis.get("category_detected", "Inconnue")
+                print(f"[Filtre] Rejet Sémantique (Catégorie détectée: {category}) pour {item_url}")
                 return
             
             recommandation = analysis.get("recommandation", "À FUIR")
@@ -139,7 +140,8 @@ class SniperCog(commands.Cog):
                         return
             
             if recommandation == "À FUIR":
-                print(f"[Filtre] Recommandation À FUIR pour {item_url}")
+                red_flags = analysis.get("red_flags", [])
+                print(f"[Filtre] À FUIR pour {item_url} | Raisons : {', '.join(red_flags)}")
                 return
             
             score = analysis.get("confidence_score", 0)
