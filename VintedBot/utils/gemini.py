@@ -2,6 +2,7 @@ import utils.database as db
 import os
 import json
 import time
+import threading
 import asyncio
 from google import genai
 from google.genai import types
@@ -28,6 +29,9 @@ def get_system_prompt():
 
 async def analyze_item_async(item_data):
     return await asyncio.to_thread(analyze_item, item_data)
+
+api_lock = threading.Lock()
+last_request_time = 0.0
 
 def analyze_item(item_data, max_retries=3):
     try:
@@ -112,13 +116,18 @@ Structure attendue :
     for model in fallback_models:
         for attempt in range(max_retries):
             try:
-                response = client.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                    config=config,
-                )
-                
-                time.sleep(4) # Rate Limit protection
+                with api_lock:
+                    global last_request_time
+                    elapsed = time.time() - last_request_time
+                    if elapsed < 1.5:
+                        time.sleep(1.5 - elapsed)
+                        
+                    response = client.models.generate_content(
+                        model=model,
+                        contents=prompt,
+                        config=config,
+                    )
+                    last_request_time = time.time()
                 
                 raw_text = response.text.strip()
                 if raw_text.startswith("```"):
@@ -197,6 +206,8 @@ Réponds UNIQUEMENT avec un objet JSON valide reprenant exactement la même stru
     
     for model in fallback_models:
         try:
+            # Simple rate limit pour vision
+            await asyncio.sleep(1.5)
             response = await get_client().aio.models.generate_content(
                 model=model,
                 contents=[
