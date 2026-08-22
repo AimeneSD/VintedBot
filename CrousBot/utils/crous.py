@@ -105,7 +105,7 @@ def chercher_crous(lat, lon, rayon_km=RAYON_DEFAULT_KM, bbox=None, phpsessid=Non
 
 def get_proxies():
     """Retourne la configuration proxy si wg0.conf existe et que wireproxy tourne"""
-    if os.path.exists('/etc/wireguard/wg0.conf'):
+    if os.path.exists('/app/wg0.conf') or os.path.exists('../wg0.conf') or os.path.exists('wg0.conf'):
         return {
             'http': 'socks5h://127.0.0.1:1080',
             'https': 'socks5h://127.0.0.1:1080'
