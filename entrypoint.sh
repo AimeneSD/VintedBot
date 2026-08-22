@@ -2,18 +2,21 @@
 echo "Démarrage du système MegaBot..."
 
 # Gestion du fichier de configuration Wireguard
-if [ -n "$WG0_CONF_B64" ]; then
+if [ -n "$WG0_CONF_RAW" ]; then
+    echo "Creation de wg0.conf depuis la variable d'environnement WG0_CONF_RAW..."
+    echo "$WG0_CONF_RAW" > /app/wg0.conf
+elif [ -n "$WG0_CONF_B64" ]; then
     echo "Creation de wg0.conf depuis la variable d'environnement WG0_CONF_B64..."
-    echo "$WG0_CONF_B64" | base64 -d > /app/wg0.conf
+    echo "$WG0_CONF_B64" | tr -d '\n\r ' | base64 -d > /app/wg0.conf
 fi
 
-if [ -f "/app/wg0.conf" ]; then
+if [ -s "/app/wg0.conf" ]; then
     echo "Démarrage de Wireproxy..."
     /usr/local/bin/wireproxy -c /app/wg0.conf &
     # Attendre que le proxy soit prêt
     sleep 3
 else
-    echo "ATTENTION: wg0.conf introuvable, le proxy ne sera pas demarré."
+    echo "ATTENTION: wg0.conf introuvable ou vide, le proxy ne sera pas demarré. Vérifiez WG0_CONF_B64."
 fi
 
 echo "Démarrage de VintedBot..."
