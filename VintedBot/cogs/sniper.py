@@ -35,6 +35,9 @@ class SniperCog(commands.Cog):
                     for u in urls:
                         all_urls.add(u)
                         
+                import time
+                print(f"[{time.strftime('%H:%M:%S')}] Scan Vinted en cours : {len(all_urls)} URL(s) surveillée(s).")
+                
                 for url in all_urls:
                     try:
                         items = await vinted_client.search(url)
