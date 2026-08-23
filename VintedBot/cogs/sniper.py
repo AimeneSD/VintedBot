@@ -23,7 +23,7 @@ class SniperCog(commands.Cog):
         await self.bot.wait_until_ready()
         print("Démarrage de la boucle de surveillance Vinted Phase 6 (Ultra-Rapide)...")
         while not self.bot.is_closed():
-            delay = random.uniform(5, 8)
+            delay = random.uniform(3, 5)
             await asyncio.sleep(delay)
             
             try:
@@ -97,13 +97,12 @@ class SniperCog(commands.Cog):
                 
             status = item.get("status", "Inconnu")
             
-            # Calcul des frais Vinted (Protection + Port)
             total_price_str = f"{price} {currency}"
             total_price_val = None
             try:
                 base_price = float(price)
                 protection_fee = 0.70 + (base_price * 0.05)
-                shipping_fee = 3.50 # Moyenne basse
+                shipping_fee = 3.50
                 total_price_val = round(base_price + protection_fee + shipping_fee, 2)
                 total_price_str = f"{total_price_val} {currency}"
             except Exception:
@@ -112,41 +111,72 @@ class SniperCog(commands.Cog):
             item_data = {
                 "title": title,
                 "description": description_raw,
-                "price": f"{price} {currency} (PRIX TOTAL AVEC FRAIS DE PORT ET PROTECTION: {total_price_str})",
+                "price": f"{price} {currency} (PRIX TOTAL AVEC FRAIS: {total_price_str})",
                 "condition": status
             }
             
+            # --- FAST TRACK LOGIC ---
+            is_fast_track = False
+            sent_fast_messages = []
+            
+            if total_price_val and 9.00 < total_price_val <= 21.00:
+                is_fast_track = True
+                print(f"⚡ [FAST TRACK] Déclenchement pour {item_url} à {total_price_val}€ !")
+                fast_embed = discord.Embed(
+                    title="⚡ URGENT - DEAL RAPIDE ⚡",
+                    url=item_url,
+                    description=f"**{title}**
+
+⚠️ *L'IA analyse le texte en arrière-plan...*",
+                    color=discord.Color.red()
+                )
+                fast_embed.add_field(name="Prix total estimé", value=f"**~{total_price_val} {currency}**", inline=True)
+                fast_embed.add_field(name="Prix affiché", value=f"**{price} {currency}**", inline=True)
+                if photo_url:
+                    fast_embed.set_thumbnail(url=photo_url)
+                
+                sent_fast_messages = await self.send_to_subscribers(search_url, [fast_embed])
+            
+            # --- AI ANALYSIS ---
             analysis = await gemini.analyze_item_async(item_data)
             
-            if analysis is None:
-                return
-            if not analysis.get("is_semantic_match", True):
-                category = analysis.get("category_detected", "Inconnue")
-                print(f"[Filtre] Rejet Sémantique (Catégorie détectée: {category}) pour {item_url}")
+            # Rejets de base (erreur API ou hors sujet)
+            if analysis is None or not analysis.get("is_semantic_match", True):
+                if not analysis:
+                    print(f"[Filtre] Échec analyse IA pour {item_url}")
+                else:
+                    category = analysis.get("category_detected", "Inconnue")
+                    print(f"[Filtre] Rejet Sémantique ({category}) pour {item_url}")
+                
+                # Si le message Fast Track a été envoyé, il faut l'annuler
+                if is_fast_track:
+                    for msg in sent_fast_messages:
+                        try:
+                            await msg.delete()
+                        except:
+                            pass
                 return
             
             recommandation = analysis.get("recommandation", "À FUIR")
             
-            # --- DOUBLE FILTRE : VISION IA ---
-            if recommandation in ["FONCE", "RISQUÉ"] and photo_url:
-                print(f"[Vision] Déclenchement de l'analyse visuelle pour {item_url}...")
-                image_bytes = await vinted_client.download_image(photo_url)
-                if image_bytes:
-                    analysis = await gemini.verify_image_async(image_bytes, analysis)
-                    # Mise à jour des variables après vision
-                    recommandation = analysis.get("recommandation", "À FUIR")
-                    if not analysis.get("is_semantic_match", True):
-                        print(f"[Filtre Vision] Match Sémantique annulé par l'image pour {item_url}")
-                        return
+            # Note : La Vision IA a été totalement désactivée ici pour gagner 10+ secondes.
             
+            # Rejet "À FUIR"
             if recommandation == "À FUIR":
                 red_flags = analysis.get("red_flags", [])
                 print(f"[Filtre] À FUIR pour {item_url} | Raisons : {', '.join(red_flags)}")
+                
+                # Supprimer le message si Fast Track
+                if is_fast_track:
+                    for msg in sent_fast_messages:
+                        try:
+                            await msg.delete()
+                        except:
+                            pass
                 return
             
             score = analysis.get("confidence_score", 0)
             embed_title = f"{recommandation} | Score : {score}/100"
-            
             color = discord.Color.green() if "FONCE" in recommandation else discord.Color.orange()
             
             main_embed = discord.Embed(
@@ -171,13 +201,16 @@ class SniperCog(commands.Cog):
             green_flags = analysis.get("green_flags", [])
             
             if green_flags:
-                main_embed.add_field(name="Points Positifs", value="\n".join([f"- {f}" for f in green_flags]), inline=False)
+                main_embed.add_field(name="Points Positifs", value="
+".join([f"- {f}" for f in green_flags]), inline=False)
             if red_flags:
-                main_embed.add_field(name="Points Négatifs", value="\n".join([f"- {f}" for f in red_flags]), inline=False)
+                main_embed.add_field(name="Points Négatifs", value="
+".join([f"- {f}" for f in red_flags]), inline=False)
                 
             repairs = analysis.get("repairs_needed", [])
             if repairs:
-                main_embed.add_field(name="Réparations", value="\n".join([f"- {f}" for f in repairs]), inline=False)
+                main_embed.add_field(name="Réparations", value="
+".join([f"- {f}" for f in repairs]), inline=False)
             
             if seller_name:
                 footer_text = f"Vendeur : {seller_name}"
@@ -188,22 +221,33 @@ class SniperCog(commands.Cog):
             if photo_url:
                 main_embed.set_image(url=photo_url)
             
-            await self.send_to_subscribers(search_url, [main_embed])
+            # --- FINAL OUTPUT ---
+            if is_fast_track:
+                for msg in sent_fast_messages:
+                    try:
+                        await msg.edit(embeds=[main_embed])
+                    except:
+                        pass
+            else:
+                await self.send_to_subscribers(search_url, [main_embed])
             
         except Exception as e:
             print(f"Erreur process_item_async: {e}")
 
     async def send_to_subscribers(self, search_url, embeds):
         config_surveillances = await db.load_config()
+        messages_sent = []
         for user_id_str, user_urls in config_surveillances.items():
             if search_url in user_urls:
                 try:
                     user = await self.bot.fetch_user(int(user_id_str))
                     if user:
-                        await user.send(embeds=embeds)
+                        msg = await user.send(embeds=embeds)
+                        messages_sent.append(msg)
                         await asyncio.sleep(1)
                 except Exception as err:
                     print(f"Impossible d'envoyer a {user_id_str}: {err}")
+        return messages_sent
 
 async def setup(bot):
     await bot.add_cog(SniperCog(bot))
