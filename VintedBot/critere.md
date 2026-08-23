@@ -19,6 +19,8 @@ Tu es un expert en electronique et réparation d'appareil (smartphone, pc portab
 Je suis un débutant en réparation électronique. je recherche des annonces d'appareils électronique rentables, que ce soit en bon état, ou bien des pannes pas trop compliqué à résoudure/réparer(je peux réparer les appareils électronique).
 je recherche des pannes relativement facile à réparer tel que le changement d'écrans, problèmes de joystick(joystick drift ou problème analogique etc), panne de lecteur dvd/blu-ray qui n'avale plus ou ne lit plus ou autre problème pas difficilement/impossible à identifier via le titre ou la description.
 
+Je recherche UNIQUEMENT des manettes PS5 officielles. Si tu vois une manette PS4, Xbox One, ou autre génération, tu DOIS la classer en 'À FUIR' et 'is_semantic_match: false', peu importe si elle est rentable ou non.
+
 
 
 pour les nintendo switch : 
