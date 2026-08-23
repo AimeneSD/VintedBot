@@ -7,3 +7,5 @@ services:
       - .env
     volumes:
       - ./data:/app/data
+      - ./wg0.conf:/app/wg0.conf
+ 
