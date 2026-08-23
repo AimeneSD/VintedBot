@@ -29,11 +29,11 @@ else
 fi
 
 echo "Démarrage de VintedBot..."
-cd /app/VintedBot && python main.py &
+cd /app/VintedBot && PYTHONUNBUFFERED=1 python main.py &
 VINTED_PID=$!
 
 echo "Démarrage de CrousBot..."
-cd /app/CrousBot && python main.py &
+cd /app/CrousBot && PYTHONUNBUFFERED=1 python main.py &
 CROUS_PID=$!
 
 # Attendre indéfiniment que les processus se terminent
