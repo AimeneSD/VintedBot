@@ -160,7 +160,19 @@ class SniperCog(commands.Cog):
             
             recommandation = analysis.get("recommandation", "À FUIR")
             
-            # Note : La Vision IA a été totalement désactivée ici pour gagner 10+ secondes.
+            # --- VISION IA (pour les objets chers uniquement) ---
+            if not is_fast_track and photo_url and recommandation != "À FUIR":
+                print(f"[Vision] Analyse visuelle en cours pour {item_url}...")
+                try:
+                    import aiohttp
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(photo_url) as resp:
+                            if resp.status == 200:
+                                image_bytes = await resp.read()
+                                analysis = await gemini.verify_image_async(image_bytes, analysis)
+                                recommandation = analysis.get("recommandation", recommandation)
+                except Exception as img_err:
+                    print(f"Erreur téléchargement image: {img_err}")
             
             # Rejet "À FUIR"
             if recommandation == "À FUIR":

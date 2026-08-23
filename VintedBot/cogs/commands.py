@@ -35,6 +35,10 @@ class CommandsCog(commands.Cog):
         if "vinted." not in url:
             await interaction.response.send_message("L'URL ne semble pas être une URL Vinted valide.", ephemeral=True)
             return
+
+        if "order=newest_first" not in url:
+            await interaction.response.send_message("❌ L'URL doit obligatoirement être triée par 'Articles récents' ! (ajoute le filtre 'Tri: Les plus récents' sur Vinted avant de copier le lien).", ephemeral=True)
+            return
             
         if user_id not in config_surveillances:
             config_surveillances[user_id] = []
