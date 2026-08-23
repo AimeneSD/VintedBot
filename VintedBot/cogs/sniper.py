@@ -125,9 +125,7 @@ class SniperCog(commands.Cog):
                 fast_embed = discord.Embed(
                     title="⚡ URGENT - DEAL RAPIDE ⚡",
                     url=item_url,
-                    description=f"**{title}**
-
-⚠️ *L'IA analyse le texte en arrière-plan...*",
+                    description=f"**{title}**\n\n⚠️ *L'IA analyse le texte en arrière-plan...*",
                     color=discord.Color.red()
                 )
                 fast_embed.add_field(name="Prix total estimé", value=f"**~{total_price_val} {currency}**", inline=True)
@@ -201,16 +199,13 @@ class SniperCog(commands.Cog):
             green_flags = analysis.get("green_flags", [])
             
             if green_flags:
-                main_embed.add_field(name="Points Positifs", value="
-".join([f"- {f}" for f in green_flags]), inline=False)
+                main_embed.add_field(name="Points Positifs", value="\n".join([f"- {f}" for f in green_flags]), inline=False)
             if red_flags:
-                main_embed.add_field(name="Points Négatifs", value="
-".join([f"- {f}" for f in red_flags]), inline=False)
+                main_embed.add_field(name="Points Négatifs", value="\n".join([f"- {f}" for f in red_flags]), inline=False)
                 
             repairs = analysis.get("repairs_needed", [])
             if repairs:
-                main_embed.add_field(name="Réparations", value="
-".join([f"- {f}" for f in repairs]), inline=False)
+                main_embed.add_field(name="Réparations", value="\n".join([f"- {f}" for f in repairs]), inline=False)
             
             if seller_name:
                 footer_text = f"Vendeur : {seller_name}"
