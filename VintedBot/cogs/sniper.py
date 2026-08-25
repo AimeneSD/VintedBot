@@ -75,7 +75,7 @@ class SniperCog(commands.Cog):
             photo_ts = item.get("photo", {}).get("high_resolution", {}).get("timestamp")
             if photo_ts:
                 age_minutes = (time.time() - photo_ts) / 60
-                if age_minutes > 30:
+                if age_minutes > 60:
                     print(f"[Filtre] Annonce {item['id']} ignorée (trop vieille : {int(age_minutes)} min).")
                     return
                     
