@@ -58,7 +58,7 @@ class SniperCog(commands.Cog):
                                 known_items[url].append(item['id'])
                         
                         if new_items:
-                            known_items[url] = known_items[url][-100:]
+                            known_items[url] = known_items[url][-1000:]
                             await db.save_known_items({url: known_items[url]})
                             
                             for item in new_items:
