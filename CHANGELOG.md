@@ -45,3 +45,7 @@
 - Added estimated total price calculation (including shipping and protection fees) for accurate AI profitability parsing.
 ### Changed
 - Updated AI rules to not flag abnormally low prices as scams, enabling aggressive sniper behavior.
+## [Unreleased] - 2026-08-25
+### Fixed
+- **Vinted Search Shuffle Bug**: Increased memory cache slice from `[-100:]` to `[-1000:]` to prevent Vinted API shuffling from triggering false positives on old items.
+- **AI Quota Exhaustion**: Added a check to ignore items whose photo upload timestamp is older than 60 minutes. This saves Gemini API quotas by discarding bugs and resurrected 3-month-old items, while leaving plenty of time for legitimate slow writers to publish their listings.
