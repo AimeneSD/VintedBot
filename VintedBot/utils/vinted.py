@@ -58,9 +58,15 @@ class VintedClient:
                         if not item.get("promoted") and not item.get("is_promoted")
                     ]
                 elif resp.status in (401, 403):
+                    print(f"[VintedClient] Accès API refusé (Erreur {resp.status}) ! L'IP VPN est blacklistée ou cookie expiré.")
+                    self.cookie_valid = False
+                    return []
+                elif resp.status == 429:
+                    print(f"[VintedClient] Trop de requêtes API (Erreur 429) ! Ralentis le bot.")
                     self.cookie_valid = False
                     return []
                 else:
+                    print(f"[VintedClient] Erreur API inattendue (Code: {resp.status})")
                     return []
         except Exception as e:
             print(f"[VintedClient] Erreur search: {e}")
