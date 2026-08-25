@@ -71,6 +71,14 @@ class SniperCog(commands.Cog):
 
     async def process_item_async(self, item, search_url):
         try:
+            import time
+            photo_ts = item.get("photo", {}).get("high_resolution", {}).get("timestamp")
+            if photo_ts:
+                age_minutes = (time.time() - photo_ts) / 60
+                if age_minutes > 10:
+                    print(f"[Filtre] Annonce {item['id']} ignorée (trop vieille : {int(age_minutes)} min).")
+                    return
+                    
             item_id = str(item["id"])
             description_raw = await vinted_client.get_item_description(item_id)
             
