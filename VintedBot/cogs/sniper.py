@@ -23,7 +23,7 @@ class SniperCog(commands.Cog):
         await self.bot.wait_until_ready()
         print("Démarrage de la boucle de surveillance Vinted Phase 6 (Ultra-Rapide)...")
         while not self.bot.is_closed():
-            delay = random.uniform(0.5, 1.5)
+            delay = random.uniform(1.5, 3)
             await asyncio.sleep(delay)
             
             try:
