@@ -31,17 +31,19 @@ class SniperCog(commands.Cog):
                 known_items = await db.load_known_items()
                 
                 all_urls = set()
-                for urls in config_surveillances.values():
-                    for u in urls:
-                        all_urls.add(u)
+                for items in config_surveillances.values():
+                    for item in items:
+                        if item.get("is_active", True):
+                            all_urls.add(item["url"])
                         
                 import time
-                print(f"[{time.strftime('%H:%M:%S')}] Scan Vinted en cours : {len(all_urls)} URL(s) surveillée(s).")
+                current_time = time.strftime('%H:%M:%S')
                 
                 for url in all_urls:
                     try:
                         items = await vinted_client.search(url)
                         if not items:
+                            print(f"[{current_time}] ⚠️ URL {url[-30:]} : 0 annonce reçue (ou Timeout).")
                             continue
                             
                         if url not in known_items:
@@ -49,6 +51,7 @@ class SniperCog(commands.Cog):
                             for item in items:
                                 known_items[url].append(item['id'])
                             await db.save_known_items({url: known_items[url]})
+                            print(f"[{current_time}] 🔄 URL {url[-30:]} : Initialisation du cache avec {len(items)} annonces.")
                             continue
                             
                         new_items = []
@@ -56,6 +59,8 @@ class SniperCog(commands.Cog):
                             if item['id'] not in known_items[url]:
                                 new_items.append(item)
                                 known_items[url].append(item['id'])
+                        
+                        print(f"[{current_time}] ✅ URL {url[-30:]} : {len(items)} annonces reçues | {len(new_items)} nouvelles.")
                         
                         if new_items:
                             known_items[url] = known_items[url][-1000:]
@@ -65,19 +70,13 @@ class SniperCog(commands.Cog):
                                 self.bot.loop.create_task(self.process_item_async(item, url))
                                 
                     except Exception as e:
-                        print(f"Erreur lors de la verification de l'URL {url}: {e}")
+                        print(f"[{current_time}] ❌ Erreur URL {url[-30:]}: {e}")
             except Exception as e:
                 print(f"Erreur boucle générale: {e}")
 
     async def process_item_async(self, item, search_url):
         try:
             import time
-            photo_ts = item.get("photo", {}).get("high_resolution", {}).get("timestamp")
-            if photo_ts:
-                age_minutes = (time.time() - photo_ts) / 60
-                if age_minutes > 60:
-                    print(f"[Filtre] Annonce {item['id']} ignorée (trop vieille : {int(age_minutes)} min).")
-                    return
                     
             item_id = str(item["id"])
             description_raw = await vinted_client.get_item_description(item_id)
@@ -169,7 +168,7 @@ class SniperCog(commands.Cog):
             recommandation = analysis.get("recommandation", "À FUIR")
             
             # --- VISION IA (pour les objets chers uniquement) ---
-            if not is_fast_track and photo_url and recommandation != "À FUIR":
+            if photo_url and recommandation != "À FUIR":
                 print(f"[Vision] Analyse visuelle en cours pour {item_url}...")
                 try:
                     import aiohttp
@@ -255,8 +254,9 @@ class SniperCog(commands.Cog):
     async def send_to_subscribers(self, search_url, embeds):
         config_surveillances = await db.load_config()
         messages_sent = []
-        for user_id_str, user_urls in config_surveillances.items():
-            if search_url in user_urls:
+        for user_id_str, items in config_surveillances.items():
+            active_urls = [i["url"] for i in items if i.get("is_active", True)]
+            if search_url in active_urls:
                 try:
                     user = await self.bot.fetch_user(int(user_id_str))
                     if user:

@@ -9,11 +9,11 @@ Ce document sert de mémoire continue à l'agent. Il décrit l'architecture du p
 - **`utils/discord_embed.py`** : Moteur de rendu. Transforme les données brutes des logements (issues de `crous.py`) en messages Discord formatés (Embeds), prêts à être envoyés sur les salons. Le format reproduit fidèlement la mise en page du site officiel du CROUS.
 - **`utils/storage.py`** : Gestionnaire de persistance locale. S'occupe de lire et d'écrire des fichiers JSON pour sauvegarder l'état du bot entre deux redémarrages.
 - **`utils/keep_alive.py`** : Micro-serveur web (`aiohttp`) exposant une route HTTP `/health`. Indispensable pour garder le bot éveillé sur des hébergements gratuits (comme Render) via un service de ping tel que UptimeRobot.
-- **`offres_connues.json`** : Fichier de cache persistant. Contient la liste des ID des offres déjà notifiées, pour éviter de spammer le canal à chaque boucle.
-- **`config_surveillance.json`** : Fichier de configuration persistant. Mémorise les salons où la surveillance automatique est activée, avec la ville, les coordonnées, et l'ID de l'utilisateur l'ayant activée.
-- **`sessions.json`** : Fichier persistant stockant les cookies `PHPSESSID` (authentification CROUS) associés à chaque utilisateur Discord (via leur `author_id`). Les sessions expirées sont détectées et supprimées automatiquement, tout en prévenant l'utilisateur en MP.
-- **`credentials.json`** : Fichier stockant les identifiants CROUS (email et mot de passe) associés à chaque utilisateur Discord, obtenus via la commande `/login`. Ce fichier permet le renouvellement automatique de la session sans que l'utilisateur n'ait besoin de relancer la commande manuellement.
-- **`villes_crous.json`** : Fichier de référence contenant la liste complète des 164 villes/secteurs issus de l'API officielle du CROUS pour l'auto-complétion dynamique des commandes.
+- **`offres_connues.json`** : Fichier de cache persistant (stocké dans `/app/data/`). Contient la liste des ID des offres déjà notifiées, pour éviter de spammer le canal à chaque boucle.
+- **`config_surveillance.json`** : Fichier de configuration persistant (stocké dans `/app/data/`). Mémorise les salons où la surveillance automatique est activée, avec la ville, les coordonnées, et l'ID de l'utilisateur l'ayant activée.
+- **`sessions.json`** : Fichier persistant (stocké dans `/app/data/`) contenant les cookies `PHPSESSID` (authentification CROUS) associés à chaque utilisateur Discord (via leur `author_id`). Les sessions expirées sont détectées et supprimées automatiquement, tout en prévenant l'utilisateur en MP.
+- **`credentials.json`** : Fichier stockant les identifiants CROUS (email et mot de passe) (stocké dans `/app/data/`) associés à chaque utilisateur Discord, obtenus via la commande `/login`. Ce fichier permet le renouvellement automatique de la session sans que l'utilisateur n'ait besoin de relancer la commande manuellement à chaque lancement du conteneur.
+- **`villes_crous.json`** : Fichier de référence contenant la liste complète des 164 villes/secteurs issus de l'API officielle du CROUS pour l'auto-complétion dynamique des commandes. Il s'agit d'un fichier statique fourni avec le code source.
 - **`.env` / `.env.example`** : Gestion des secrets (Token du bot Discord) et de la configuration de l'intervalle de vérification.
 
 ## Décisions Techniques

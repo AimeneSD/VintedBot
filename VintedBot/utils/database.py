@@ -40,9 +40,22 @@ async def init_db():
                 CREATE TABLE IF NOT EXISTS surveillances (
                     user_id VARCHAR(255),
                     url TEXT,
+                    is_active BOOLEAN DEFAULT TRUE,
                     UNIQUE KEY user_url (user_id, url(255))
                 )
             ''')
+            # Migration pour ajouter is_active si la colonne n'existe pas
+            try:
+                await cur.execute('''
+                    SELECT count(*)
+                    FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'surveillances' AND COLUMN_NAME = 'is_active'
+                ''', (DB_NAME,))
+                count = await cur.fetchone()
+                if count and count[0] == 0:
+                    await cur.execute('ALTER TABLE surveillances ADD COLUMN is_active BOOLEAN DEFAULT TRUE')
+            except Exception as e:
+                print(f"Erreur migration surveillances: {e}")
             # Table pour le cache des urls pour le sniper
             await cur.execute('''
                 CREATE TABLE IF NOT EXISTS cache_vinted (
@@ -71,14 +84,16 @@ async def load_config():
     config = {}
     async with pool.acquire() as conn:
         async with conn.cursor(aiomysql.DictCursor) as cur:
-            await cur.execute("SELECT user_id, url FROM surveillances")
+            await cur.execute("SELECT user_id, url, is_active FROM surveillances")
             rows = await cur.fetchall()
             for row in rows:
                 uid = row["user_id"]
                 url = row["url"]
+                # MySQL renvoie 1/0 pour BOOLEAN/TINYINT
+                is_active = bool(row.get("is_active", 1))
                 if uid not in config:
                     config[uid] = []
-                config[uid].append(url)
+                config[uid].append({"url": url, "is_active": is_active})
     return config
 
 async def save_config(config):
@@ -87,11 +102,13 @@ async def save_config(config):
         async with conn.cursor() as cur:
             # Pour faire simple on clear la table et on reinstert (car petite config)
             await cur.execute("TRUNCATE TABLE surveillances")
-            for uid, urls in config.items():
-                for url in urls:
+            for uid, items in config.items():
+                for item in items:
+                    url = item["url"]
+                    is_active = item.get("is_active", True)
                     await cur.execute(
-                        "INSERT IGNORE INTO surveillances (user_id, url) VALUES (%s, %s)",
-                        (uid, url)
+                        "INSERT IGNORE INTO surveillances (user_id, url, is_active) VALUES (%s, %s, %s)",
+                        (uid, url, is_active)
                     )
 
 async def load_known_items():

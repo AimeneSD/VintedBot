@@ -44,7 +44,17 @@ class VintedClient:
             if p in query_params:
                 del query_params[p]
                 
-        clean_query = urllib.parse.urlencode(query_params, doseq=True)
+        cleaned_query_params = {}
+        for k, v in query_params.items():
+            if k in ['catalog', 'catalog[]']:
+                cleaned_query_params['catalog_ids'] = v
+            else:
+                cleaned_query_params[k] = v
+            
+        import time
+        cleaned_query_params['time'] = [str(int(time.time()))]
+
+        clean_query = urllib.parse.urlencode(cleaned_query_params, doseq=True)
         api_url = f"https://www.vinted.fr/api/v2/catalog/items?{clean_query}"
         
         try:

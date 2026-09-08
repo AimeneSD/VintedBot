@@ -187,9 +187,11 @@ Voici l'analyse textuelle préliminaire d'une annonce Vinted :
 TA TÂCHE :
 Examine attentivement l'image jointe à cette annonce. Confirme-t-elle l'analyse textuelle ?
 Vois-tu des vices cachés graves non mentionnés qui rendraient l'objet inutilisable ou non réparable (ex: carte mère à nue sans coque, produit cassé en deux, oxydation majeure) ?
+ATTENTION PARTICULIÈRE POUR LES PIÈCES DÉTACHÉES : Si l'image montre UNIQUEMENT une pièce détachée (ex: juste une coque en plastique vide, juste des boutons, juste une boîte vide) au lieu de l'appareil complet, c'est un vice rédhibitoire absolu.
 ATTENTION PARTICULIÈRE POUR LES MANETTES : Vérifie VISUELLEMENT que la manette est bien une manette OFFICIELLE (présence du logo PlayStation sur le bouton PS, logo Xbox, logo Nintendo). Si l'image montre une manette générique, tierce, ou une contrefaçon évidente sans le logo officiel de la marque, c'est un vice rédhibitoire.
+ATTENTION PARTICULIÈRE POUR LES CONSOLES NINTENDO : Vérifie VISUELLEMENT le modèle. L'utilisateur veut UNIQUEMENT les modèles de la gamme "New" (New 3DS, New 3DS XL, New 2DS XL). Si tu vois une Nintendo 2DS classique (le modèle en forme de bloc plat, qui NE SE PLIE PAS) ou une ancienne 3DS classique, c'est un vice rédhibitoire.
 
-Si l'image révèle un vice rédhibitoire (comme une coque complètement manquante sur une manette), TU DOIS forcer :
+Si l'image révèle un vice rédhibitoire (comme une simple coque vide au lieu de l'appareil, une manette non officielle, ou une console Nintendo d'ancienne génération comme la 2DS plate), TU DOIS forcer :
 "recommandation": "À FUIR"
 "is_semantic_match": false
 

@@ -49,3 +49,9 @@
 ### Fixed
 - **Vinted Search Shuffle Bug**: Increased memory cache slice from `[-100:]` to `[-1000:]` to prevent Vinted API shuffling from triggering false positives on old items.
 - **AI Quota Exhaustion**: Added a check to ignore items whose photo upload timestamp is older than 60 minutes. This saves Gemini API quotas by discarding bugs and resurrected 3-month-old items, while leaving plenty of time for legitimate slow writers to publish their listings.
+### Changed
+- **AI Quota Exhaustion**: Removed the 60-minute photo upload timestamp limit. All items fetched will now be processed by AI regardless of how old the photos are.
+### Fixed
+- **False Positives on Spare Parts**: Added strict rules to both Text and Vision AI prompts to forcefully reject listings selling ONLY spare parts (like empty controller shells or boxes) that were previously misidentified as full functional or broken controllers.
+- **Vinted Search Filters Ignore Bug**: Fixed an issue where URL parameters with brackets like `catalog[]` from Vinted's frontend were ignored by the Vinted API v2. The bot now strips brackets and translates `catalog` to `catalog_ids`, ensuring that Vinted correctly filters categories instead of performing global cross-category searches (which returned clothes).
+- **False Positives on Classic 2DS**: Added strict rules to both Text and Vision AI prompts to forcefully reject old generations of Nintendo handhelds, specifically the classic flat Nintendo 2DS, even if the listing title contains the word "new" (e.g., from a game like New Super Mario). Only "New 3DS", "New 3DS XL", and foldable "New 2DS XL" are permitted.

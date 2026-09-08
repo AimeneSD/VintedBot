@@ -1,11 +1,14 @@
 import os
 import json
 
-CACHE_FILE = "offres_connues.json"
-CONFIG_FILE = "config_surveillance.json"
-SESSIONS_FILE = "sessions.json"
-VILLES_FILE = "villes_crous.json"
-CREDENTIALS_FILE = "credentials.json"
+# Utiliser le volume persistant Docker s'il existe, sinon le dossier courant
+DATA_DIR = "/app/data" if os.path.isdir("/app/data") else "."
+
+CACHE_FILE = os.path.join(DATA_DIR, "crous_offres_connues.json")
+CONFIG_FILE = os.path.join(DATA_DIR, "crous_config_surveillance.json")
+SESSIONS_FILE = os.path.join(DATA_DIR, "crous_sessions.json")
+CREDENTIALS_FILE = os.path.join(DATA_DIR, "crous_credentials.json")
+VILLES_FILE = "villes_crous.json" # Fichier statique, reste dans le dossier source
 
 def charger_json(filepath, default):
     """Charge des données depuis un fichier JSON s'il existe"""

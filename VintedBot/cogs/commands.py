@@ -7,12 +7,19 @@ import utils.database as db
 async def autocomplete_vinted_urls(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     config_surveillances = await db.load_config()
     user_id = str(interaction.user.id)
-    urls = config_surveillances.get(user_id, [])
-    matches = [(str(i), u) for i, u in enumerate(urls) if current.lower() in u.lower()]
+    items = config_surveillances.get(user_id, [])
     
+    matches = []
+    for i, item in enumerate(items):
+        u = item["url"]
+        is_act = item.get("is_active", True)
+        if current.lower() in u.lower():
+            matches.append((str(i), u, is_act))
+            
     choices = []
-    for index_str, url in matches[:25]:
-        short_name = f"{int(index_str)+1}. {url}"
+    for index_str, url, is_act in matches[:25]:
+        status = "🟢" if is_act else "🔴"
+        short_name = f"{int(index_str)+1}. {status} {url}"
         if len(short_name) > 100:
             short_name = short_name[:97] + "..."
         choices.append(app_commands.Choice(name=short_name, value=index_str))
@@ -43,11 +50,11 @@ class CommandsCog(commands.Cog):
         if user_id not in config_surveillances:
             config_surveillances[user_id] = []
             
-        if url in config_surveillances[user_id]:
+        if any(i["url"] == url for i in config_surveillances[user_id]):
             await interaction.response.send_message("Tu surveilles déjà cette recherche !", ephemeral=True)
             return
             
-        config_surveillances[user_id].append(url)
+        config_surveillances[user_id].append({"url": url, "is_active": True})
         await db.save_config(config_surveillances)
         
         await interaction.response.send_message(
@@ -61,15 +68,16 @@ class CommandsCog(commands.Cog):
     async def vinted_list(self, interaction: discord.Interaction):
         config_surveillances = await db.load_config()
         user_id = str(interaction.user.id)
-        urls = config_surveillances.get(user_id, [])
+        items = config_surveillances.get(user_id, [])
         
-        if not urls:
-            await interaction.response.send_message("Tu n'as aucune surveillance Vinted active pour le moment. Utilise `/vinted_add`.", ephemeral=True)
+        if not items:
+            await interaction.response.send_message("Tu n'as aucune surveillance Vinted pour le moment. Utilise `/vinted_add`.", ephemeral=True)
             return
             
-        msg = "**Tes surveillances Vinted actives :**\n\n"
-        for i, url in enumerate(urls, 1):
-            msg += f"**{i}.** <{url}>\n"
+        msg = "**Tes surveillances Vinted :**\n\n"
+        for i, item in enumerate(items, 1):
+            status = "🟢 ACTIF" if item.get("is_active", True) else "🔴 INACTIF"
+            msg += f"**{i}.** {status} <{item['url']}>\n"
             
         await interaction.response.send_message(msg, ephemeral=True)
 
@@ -79,23 +87,39 @@ class CommandsCog(commands.Cog):
     async def vinted_remove(self, interaction: discord.Interaction, url_index: str):
         config_surveillances = await db.load_config()
         user_id = str(interaction.user.id)
-        urls = config_surveillances.get(user_id, [])
+        items = config_surveillances.get(user_id, [])
         
         try:
             index = int(url_index)
-            if 0 <= index < len(urls):
-                removed_url = urls.pop(index)
+            if 0 <= index < len(items):
+                removed_item = items.pop(index)
                 await db.save_config(config_surveillances)
-                await interaction.response.send_message(f"**Surveillance supprimée avec succès.**\nURL retirée : <{removed_url}>", ephemeral=True)
+                await interaction.response.send_message(f"**Surveillance supprimée avec succès.**\nURL retirée : <{removed_item['url']}>", ephemeral=True)
             else:
                 await interaction.response.send_message("L'index fourni est invalide.", ephemeral=True)
         except ValueError:
-            if url_index in urls:
-                urls.remove(url_index)
+            await interaction.response.send_message("Sélection invalide.", ephemeral=True)
+
+    @app_commands.command(name="vinted_toggle", description="Active ou désactive une surveillance Vinted")
+    @app_commands.describe(url_index="Choisis l'URL de la surveillance à basculer")
+    @app_commands.autocomplete(url_index=autocomplete_vinted_urls)
+    async def vinted_toggle(self, interaction: discord.Interaction, url_index: str):
+        config_surveillances = await db.load_config()
+        user_id = str(interaction.user.id)
+        items = config_surveillances.get(user_id, [])
+        
+        try:
+            index = int(url_index)
+            if 0 <= index < len(items):
+                current_state = items[index].get("is_active", True)
+                items[index]["is_active"] = not current_state
                 await db.save_config(config_surveillances)
-                await interaction.response.send_message("**Surveillance supprimée avec succès.**", ephemeral=True)
+                new_status = "🟢 ACTIF" if not current_state else "🔴 INACTIF"
+                await interaction.response.send_message(f"**Surveillance mise à jour.**\nLe lien est maintenant {new_status} :\n<{items[index]['url']}>", ephemeral=True)
             else:
-                await interaction.response.send_message("Sélection invalide.", ephemeral=True)
+                await interaction.response.send_message("L'index fourni est invalide.", ephemeral=True)
+        except ValueError:
+            await interaction.response.send_message("Sélection invalide.", ephemeral=True)
 
     @app_commands.command(name="setprompt", description="Met à jour le fichier critere.md")
     @app_commands.describe(fichier="Fichier .md ou .txt contenant tes critères")

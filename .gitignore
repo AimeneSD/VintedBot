@@ -4,3 +4,5 @@ wg0.conf
 __pycache__/
 *.pyc
 
+wg*.conf
+data/
