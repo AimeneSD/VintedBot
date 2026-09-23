@@ -230,6 +230,7 @@ async def on_ready():
 
 
 @bot.tree.command(name="crous", description="Recherche des logements CROUS")
+@app_commands.guild_only()
 @app_commands.describe(
     ville="La ville où tu cherches un logement (ex: Paris)",
     rayon_km="Optionnel : Chercher dans un rayon X autour de la ville."
@@ -301,6 +302,7 @@ async def commande_crous(interaction: discord.Interaction, ville: str, rayon_km:
 
 
 @bot.tree.command(name="surveiller", description="Active la surveillance (cumulable)")
+@app_commands.guild_only()
 @app_commands.describe(
     ville="La ville à surveiller (ex: Lyon)",
     rayon_km="Optionnel : Le rayon de surveillance."
@@ -344,6 +346,10 @@ async def commande_surveiller(interaction: discord.Interaction, ville: str, rayo
     surveillances = config_surveillance.setdefault("surveillances", {})
     user_list = surveillances.setdefault(author_id_str, [])
     
+    if len(user_list) >= 1:
+        await interaction.followup.send("⚠️ Tu ne peux surveiller qu'**une seule ville à la fois**. Utilise `/stop_surveillance` pour supprimer ta ville actuelle avant d'en ajouter une autre.", ephemeral=True)
+        return
+        
     # Vérifier si la ville est déjà surveillée par l'utilisateur
     for s in user_list:
         if s.get("ville") == nom_officiel:
@@ -396,6 +402,7 @@ async def commande_surveiller(interaction: discord.Interaction, ville: str, rayo
     except Exception as e:
         print(f"Erreur lors de la recherche initiale pour {nom_officiel}: {e}")
 @bot.tree.command(name="stop_surveillance", description="Arrête une ou toutes tes surveillances")
+@app_commands.guild_only()
 @app_commands.describe(ville="Laisse vide pour tout arrêter, ou tape le nom de la ville")
 @app_commands.autocomplete(ville=autocomplete_villes)
 async def commande_stop_surveillance(interaction: discord.Interaction, ville: str = None):
@@ -427,6 +434,7 @@ async def commande_stop_surveillance(interaction: discord.Interaction, ville: st
 
 
 @bot.tree.command(name="mes_surveillances", description="Affiche la liste de tes surveillances actives")
+@app_commands.guild_only()
 async def commande_mes_surveillances(interaction: discord.Interaction):
     author_id_str = str(interaction.user.id)
     user_list = config_surveillance.get("surveillances", {}).get(author_id_str, [])
@@ -451,6 +459,7 @@ async def commande_mes_surveillances(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="setcookie", description="Enregistre ton cookie PHPSESSID pour que le bot cherche en ton nom.")
+@app_commands.guild_only()
 @app_commands.describe(cookie_val="La valeur de ton PHPSESSID")
 async def commande_setcookie(interaction: discord.Interaction, cookie_val: str):
     sessions = charger_json(SESSIONS_FILE, {})
@@ -462,6 +471,7 @@ async def commande_setcookie(interaction: discord.Interaction, cookie_val: str):
 
 
 @bot.tree.command(name="login", description="Enregistre tes identifiants pour le renouvellement automatique de ta session.")
+@app_commands.guild_only()
 @app_commands.describe(email="Ton adresse email CROUS", password="Ton mot de passe CROUS")
 async def commande_login(interaction: discord.Interaction, email: str, password: str):
     await interaction.response.defer(ephemeral=True)
@@ -489,6 +499,7 @@ async def commande_login(interaction: discord.Interaction, email: str, password:
 
 
 @bot.tree.command(name="logout", description="Déconnecte-toi et supprime tes identifiants de la mémoire du bot.")
+@app_commands.guild_only()
 async def commande_logout(interaction: discord.Interaction):
     sessions = charger_json(SESSIONS_FILE, {})
     credentials = charger_json(CREDENTIALS_FILE, {})
