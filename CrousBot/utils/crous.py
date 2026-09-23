@@ -176,7 +176,15 @@ def renouveler_session_automatiquement(email, password):
             
         try:
             s = requests.Session()
-            s.headers.update(headers)
+            # On n'utilise pas le "headers" global car il contient "Content-Type: application/json", 
+            # ce qui casse l'envoi des formulaires URL-encoded. On met de vrais headers de navigateur HTML.
+            s.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Origin': 'https://messervices.etudiant.gouv.fr',
+                'Referer': 'https://messervices.etudiant.gouv.fr/'
+            })
             
             # 1. Obtenir les jetons initiaux
             r1 = s.get('https://trouverunlogement.lescrous.fr/mse/discovery/connect', allow_redirects=True, proxies=get_proxies(), timeout=15)
