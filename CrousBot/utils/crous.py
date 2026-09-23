@@ -104,8 +104,11 @@ def chercher_crous(lat, lon, rayon_km=RAYON_DEFAULT_KM, bbox=None, phpsessid=Non
 
 
 def get_proxies():
-    """Retourne des proxys vides pour forcer le CrousBot à utiliser l'IP du serveur (ignore HTTP_PROXY)"""
-    return {"http": "", "https": ""}
+    """Retourne le proxy SOCKS5 (Wireproxy) pour utiliser l'IP résidentielle Free"""
+    return {
+        "http": "socks5h://127.0.0.1:1080",
+        "https": "socks5h://127.0.0.1:1080"
+    }
 
 def verifier_session(phpsessid):
     """Vérifie si la session (PHPSESSID) est toujours valide."""

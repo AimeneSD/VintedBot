@@ -3,5 +3,6 @@ requests
 python-dotenv
 aiohttp
 PySocks
-beautifulsoup4cryptography
+beautifulsoup4
+cryptography
 aiomysql
