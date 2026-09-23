@@ -228,12 +228,24 @@ def renouveler_session_automatiquement(email, password):
             
             cookies = s.cookies.get_dict()
             phpsessid = cookies.get('PHPSESSID')
-            if phpsessid and verifier_session(phpsessid):
-                print("Authentification réussie ! PHPSESSID récupéré.")
-                return phpsessid
+            
+            # DEBUG PRINTS
+            print(f"DEBUG: Après Step 3, URL finale = {r3.url}")
+            print(f"DEBUG: Cookies récupérés = {cookies}")
+            if phpsessid:
+                is_valid = verifier_session(phpsessid)
+                print(f"DEBUG: PHPSESSID récupéré ({phpsessid[:5]}...), verifier_session = {is_valid}")
+                if is_valid:
+                    print("Authentification réussie ! PHPSESSID récupéré.")
+                    return phpsessid
+                else:
+                    print("DEBUG: PHPSESSID invalide selon l'API /user")
             else:
-                print("Echec de l'authentification (identifiants invalides ou bloqué).")
-                return None
+                print("DEBUG: Aucun PHPSESSID trouvé dans les cookies.")
+                print(f"DEBUG: Code HTML partiel r3: {r3.text[:250]}")
+                
+            print("Echec de l'authentification (identifiants invalides ou bloqué).")
+            # Ne retourne pas None tout de suite, on laisse la boucle réessayer si c'est un blocage
         except requests.exceptions.Timeout:
             print("Erreur : Timeout lors de la connexion. Le proxy ou le CROUS est très lent.")
         except requests.exceptions.RequestException as e:
