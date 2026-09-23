@@ -11,6 +11,7 @@ except ImportError:
     pass
 
 from utils.storage import CACHE_FILE, CONFIG_FILE, SESSIONS_FILE, VILLES_FILE, CREDENTIALS_FILE, charger_json, sauvegarder_json
+import utils.crypto as crypto
 from utils.crous import (
     RAYON_DEFAULT_KM,
     obtenir_coordonnees,
@@ -95,7 +96,8 @@ async def boucle_surveillance_automatique():
             nouveau_phpsessid = None
             if user_creds:
                 email = user_creds.get('email')
-                password = user_creds.get('password')
+                password_chiffre = user_creds.get('password')
+                password = crypto.dechiffrer(password_chiffre)
                 print(f"[Session] Renouvellement automatique pour {author_id_str}...")
                 nouveau_phpsessid = await asyncio.to_thread(renouveler_session_automatiquement, email, password)
                 
@@ -251,7 +253,8 @@ async def commande_crous(interaction: discord.Interaction, ville: str, rayon_km:
         user_creds = credentials.get(str(interaction.user.id))
         if user_creds:
             email = user_creds.get('email')
-            password = user_creds.get('password')
+            password_chiffre = user_creds.get('password')
+            password = crypto.dechiffrer(password_chiffre)
             phpsessid = await asyncio.to_thread(renouveler_session_automatiquement, email, password)
             if phpsessid:
                 sessions[str(interaction.user.id)] = phpsessid
@@ -323,7 +326,8 @@ async def commande_surveiller(interaction: discord.Interaction, ville: str, rayo
         user_creds = credentials.get(str(interaction.user.id))
         if user_creds:
             email = user_creds.get('email')
-            password = user_creds.get('password')
+            password_chiffre = user_creds.get('password')
+            password = crypto.dechiffrer(password_chiffre)
             phpsessid = await asyncio.to_thread(renouveler_session_automatiquement, email, password)
             if phpsessid:
                 sessions[str(interaction.user.id)] = phpsessid
@@ -489,7 +493,7 @@ async def commande_login(interaction: discord.Interaction, email: str, password:
         credentials = charger_json(CREDENTIALS_FILE, {})
         credentials[str(interaction.user.id)] = {
             "email": email,
-            "password": password
+            "password": crypto.chiffrer(password)
         }
         sauvegarder_json(CREDENTIALS_FILE, credentials)
         
