@@ -104,8 +104,8 @@ def chercher_crous(lat, lon, rayon_km=RAYON_DEFAULT_KM, bbox=None, phpsessid=Non
 
 
 def get_proxies():
-    """Retourne None pour forcer le CrousBot à utiliser l'IP du serveur et éviter de bannir l'IP résidentielle"""
-    return None
+    """Retourne des proxys vides pour forcer le CrousBot à utiliser l'IP du serveur (ignore HTTP_PROXY)"""
+    return {"http": "", "https": ""}
 
 def verifier_session(phpsessid):
     """Vérifie si la session (PHPSESSID) est toujours valide."""
