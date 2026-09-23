@@ -22,11 +22,54 @@ async def get_pool():
     return get_pool.pool
 
 async def init_db():
-    """
-    On suppose que les tables ont été créées via le script crous_schema.sql,
-    mais on peut mettre des garde-fous ici si besoin.
-    """
-    pass
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute('''
+                CREATE TABLE IF NOT EXISTS `crous_villes` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `nom` varchar(255) NOT NULL,
+                  PRIMARY KEY (`id`),
+                  UNIQUE KEY `nom` (`nom`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ''')
+            await cur.execute('''
+                CREATE TABLE IF NOT EXISTS `crous_surveillances` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `user_id` varchar(255) NOT NULL,
+                  `ville` varchar(255) NOT NULL,
+                  `rayon_km` int(11) NOT NULL DEFAULT 10,
+                  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+                  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (`id`),
+                  KEY `user_id` (`user_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ''')
+            await cur.execute('''
+                CREATE TABLE IF NOT EXISTS `crous_offres_connues` (
+                  `user_id` varchar(255) NOT NULL,
+                  `offre_id` varchar(255) NOT NULL,
+                  `discovered_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (`user_id`, `offre_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ''')
+            await cur.execute('''
+                CREATE TABLE IF NOT EXISTS `crous_sessions` (
+                  `user_id` varchar(255) NOT NULL,
+                  `phpsessid` varchar(255) NOT NULL,
+                  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  PRIMARY KEY (`user_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ''')
+            await cur.execute('''
+                CREATE TABLE IF NOT EXISTS `crous_credentials` (
+                  `user_id` varchar(255) NOT NULL,
+                  `email` varchar(255) NOT NULL,
+                  `password` varchar(255) NOT NULL,
+                  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  PRIMARY KEY (`user_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ''')
 
 # --- SURVEILLANCES ---
 async def load_surveillances():
