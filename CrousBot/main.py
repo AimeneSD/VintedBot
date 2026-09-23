@@ -10,7 +10,6 @@ try:
 except ImportError:
     pass
 
-from utils.storage import VILLES_FILE, charger_json
 import utils.database as db
 import utils.crypto as crypto
 from utils.crous import (
@@ -26,8 +25,13 @@ from utils.keep_alive import start_web_server
 TOKEN_BOT_DISCORD = os.getenv("TOKEN_BOT_DISCORD")
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", 30))
 
+import json
+
 # Chargement du cache persistant
-villes_crous = charger_json(VILLES_FILE, [])
+villes_crous = []
+if os.path.exists("villes_crous.json"):
+    with open("villes_crous.json", "r", encoding="utf-8") as f:
+        villes_crous = json.load(f)
 
 import unicodedata
 
