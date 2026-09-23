@@ -129,7 +129,7 @@ async def boucle_surveillance_automatique():
                 items = await asyncio.to_thread(chercher_crous, lat, lon, rayon_km=rayon_km, bbox=bbox, phpsessid=phpsessid)
                 nouveaux_items = []
                 for item in items:
-                    logement_id = item.get('id')
+                    logement_id = str(item.get('id'))
                     if logement_id and logement_id not in user_offres_connues:
                         await db.add_offre_connue(author_id_str, logement_id)
                         user_offres_connues.add(logement_id)
@@ -315,6 +315,7 @@ async def commande_surveiller(interaction: discord.Interaction, ville: str, rayo
         for item in items:
             logement_id = item.get('id')
             if logement_id:
+                logement_id = str(logement_id)
                 if logement_id not in user_offres_connues:
                     # On l'ajoute en base AVANT de sauvegarder la surveillance
                     # pour éviter que la boucle background ne le détecte en même temps
