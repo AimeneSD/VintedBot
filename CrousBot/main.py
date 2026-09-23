@@ -306,14 +306,7 @@ async def commande_surveiller(interaction: discord.Interaction, ville: str, rayo
             await interaction.followup.send(f"Tu surveilles déjà **{nom_officiel}** !", ephemeral=True)
             return
 
-    await db.add_surveillance(author_id_str, nom_officiel, rayon_km)
-
-    if bbox and rayon_km == RAYON_DEFAULT_KM:
-        await interaction.followup.send(f"**Surveillance ajoutée**, le bot vérifiera les logements toutes les {CHECK_INTERVAL}s à **{nom_officiel}**.", ephemeral=True)
-    else:
-        await interaction.followup.send(f"**Surveillance ajoutée**, le bot vérifiera les logements toutes les {CHECK_INTERVAL}s dans un périmètre de **{rayon_km} km** autour de **{nom_officiel}**.", ephemeral=True)
-
-    # === ENVOI IMMÉDIAT DES OFFRES EXISTANTES ===
+    # === RECHERCHE INITIALE ET ENVOI IMMÉDIAT ===
     try:
         items = await asyncio.to_thread(chercher_crous, lat, lon, rayon_km=rayon_km, bbox=bbox, phpsessid=phpsessid)
         nouveaux_items = []
@@ -323,8 +316,18 @@ async def commande_surveiller(interaction: discord.Interaction, ville: str, rayo
             logement_id = item.get('id')
             if logement_id:
                 if logement_id not in user_offres_connues:
+                    # On l'ajoute en base AVANT de sauvegarder la surveillance
+                    # pour éviter que la boucle background ne le détecte en même temps
                     await db.add_offre_connue(author_id_str, logement_id)
                     nouveaux_items.append(item)
+                    
+        # On sauvegarde la surveillance APRÈS avoir enregistré les offres connues
+        await db.add_surveillance(author_id_str, nom_officiel, rayon_km)
+
+        if bbox and rayon_km == RAYON_DEFAULT_KM:
+            await interaction.followup.send(f"**Surveillance ajoutée**, le bot vérifiera les logements toutes les {CHECK_INTERVAL}s à **{nom_officiel}**.", ephemeral=True)
+        else:
+            await interaction.followup.send(f"**Surveillance ajoutée**, le bot vérifiera les logements toutes les {CHECK_INTERVAL}s dans un périmètre de **{rayon_km} km** autour de **{nom_officiel}**.", ephemeral=True)
                 
         if nouveaux_items:
             msg_content = f"**{len(nouveaux_items)} offre(s) actuellement disponible(s) pour ta nouvelle surveillance à {nom_officiel} !**"
@@ -344,6 +347,9 @@ async def commande_surveiller(interaction: discord.Interaction, ville: str, rayo
                     await asyncio.sleep(1)
     except Exception as e:
         print(f"Erreur lors de la recherche initiale pour {nom_officiel}: {e}")
+        # En cas d'erreur de recherche, on ajoute quand même la surveillance
+        await db.add_surveillance(author_id_str, nom_officiel, rayon_km)
+        await interaction.followup.send(f"**Surveillance ajoutée**, mais la recherche immédiate a échoué. Le bot prendra le relais.", ephemeral=True)
 
 @bot.tree.command(name="stop_surveillance", description="Arrête une ou toutes tes surveillances")
 @app_commands.guild_only()
