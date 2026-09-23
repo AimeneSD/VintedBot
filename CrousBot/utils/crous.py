@@ -167,62 +167,77 @@ def solve_altcha(challenge_json_str):
 def renouveler_session_automatiquement(email, password):
     """Effectue tout le parcours OAuth2 + Altcha pour récupérer un PHPSESSID valide"""
     print(f"Tentative de connexion pour {email}...")
-    s = requests.Session()
-    s.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})
     
-    # 1. Obtenir les jetons initiaux
-    r1 = s.get('https://trouverunlogement.lescrous.fr/mse/discovery/connect', allow_redirects=True, proxies=get_proxies(), timeout=10)
-    soup1 = BeautifulSoup(r1.text, 'html.parser')
-    form1 = soup1.find('form', {'name': 'login'})
-    if not form1:
-        print("Erreur: Formulaire Etape 1 introuvable")
-        return None
-        
-    payload1 = {}
-    for input_tag in form1.find_all('input'):
-        name = input_tag.get('name')
-        if name:
-            if name == 'login[app]':
-                if input_tag.get('value') == '0':
-                    payload1[name] = '0'
-            else:
-                payload1[name] = input_tag.get('value', '')
-                
-    # 2. Obtenir le formulaire de login avec Altcha
-    r2 = s.post(r1.url, data=payload1, allow_redirects=True, proxies=get_proxies(), timeout=10)
-    soup2 = BeautifulSoup(r2.text, 'html.parser')
-    form2 = soup2.find('form', {'name': 'login'})
-    
-    if not form2:
-        print("Erreur: Formulaire Etape 2 introuvable")
-        return None
-        
-    payload2 = {}
-    for input_tag in form2.find_all('input'):
-        name = input_tag.get('name')
-        if name and name not in ['login[login]', 'login[password]']:
-            payload2[name] = input_tag.get('value', '')
+    for attempt in range(3):
+        if attempt > 0:
+            print(f"Nouvelle tentative de connexion ({attempt+1}/3)...")
+            import time
+            time.sleep(2)
             
-    altcha_tag = soup2.find('altcha-widget')
-    if altcha_tag:
-        challenge_json = altcha_tag.get('challengejson')
-        print("Résolution du défi Altcha PoW en cours...")
-        payload2['login[altcha]'] = solve_altcha(challenge_json)
-    
-    payload2['login[login]'] = email
-    payload2['login[password]'] = password
-    
-    # 3. Soumettre le login et suivre les redirections pour obtenir le PHPSESSID final
-    r3 = s.post(r2.url, data=payload2, allow_redirects=True, proxies=get_proxies(), timeout=15)
-    
-    # 4. Effectuer un dernier appel sur le domaine trouverunlogement.lescrous.fr pour forcer l'enregistrement du cookie
-    r4 = s.get('https://trouverunlogement.lescrous.fr/api/fr/user', proxies=get_proxies(), timeout=10)
-    
-    cookies = s.cookies.get_dict()
-    phpsessid = cookies.get('PHPSESSID')
-    if phpsessid and verifier_session(phpsessid):
-        print("Authentification réussie ! PHPSESSID récupéré.")
-        return phpsessid
-    else:
-        print("Echec de l'authentification (identifiants invalides ou bloqué).")
-        return None
+        try:
+            s = requests.Session()
+            s.headers.update(headers)
+            
+            # 1. Obtenir les jetons initiaux
+            r1 = s.get('https://trouverunlogement.lescrous.fr/mse/discovery/connect', allow_redirects=True, proxies=get_proxies(), timeout=15)
+            soup1 = BeautifulSoup(r1.text, 'html.parser')
+            form1 = soup1.find('form', {'name': 'login'})
+            if not form1:
+                print(f"Erreur: Formulaire Etape 1 introuvable. Code HTML partiel: {r1.text[:200]}")
+                continue
+                
+            payload1 = {}
+            for input_tag in form1.find_all('input'):
+                name = input_tag.get('name')
+                if name:
+                    if name == 'login[app]':
+                        if input_tag.get('value') == '0':
+                            payload1[name] = '0'
+                    else:
+                        payload1[name] = input_tag.get('value', '')
+                        
+            # 2. Obtenir le formulaire de login avec Altcha
+            r2 = s.post(r1.url, data=payload1, allow_redirects=True, proxies=get_proxies(), timeout=15)
+            soup2 = BeautifulSoup(r2.text, 'html.parser')
+            form2 = soup2.find('form', {'name': 'login'})
+            
+            if not form2:
+                print("Erreur: Formulaire Etape 2 introuvable")
+                continue
+                
+            payload2 = {}
+            for input_tag in form2.find_all('input'):
+                name = input_tag.get('name')
+                if name and name not in ['login[login]', 'login[password]']:
+                    payload2[name] = input_tag.get('value', '')
+                    
+            altcha_tag = soup2.find('altcha-widget')
+            if altcha_tag:
+                challenge_json = altcha_tag.get('challengejson')
+                print("Résolution du défi Altcha PoW en cours...")
+                payload2['login[altcha]'] = solve_altcha(challenge_json)
+            
+            payload2['login[login]'] = email
+            payload2['login[password]'] = password
+            
+            # 3. Soumettre le login et suivre les redirections pour obtenir le PHPSESSID final
+            r3 = s.post(r2.url, data=payload2, allow_redirects=True, proxies=get_proxies(), timeout=20)
+            
+            # 4. Effectuer un dernier appel sur le domaine trouverunlogement.lescrous.fr pour forcer l'enregistrement du cookie
+            r4 = s.get('https://trouverunlogement.lescrous.fr/api/fr/user', proxies=get_proxies(), timeout=15)
+            
+            cookies = s.cookies.get_dict()
+            phpsessid = cookies.get('PHPSESSID')
+            if phpsessid and verifier_session(phpsessid):
+                print("Authentification réussie ! PHPSESSID récupéré.")
+                return phpsessid
+            else:
+                print("Echec de l'authentification (identifiants invalides ou bloqué).")
+                return None
+        except requests.exceptions.Timeout:
+            print("Erreur : Timeout lors de la connexion. Le proxy ou le CROUS est très lent.")
+        except requests.exceptions.RequestException as e:
+            print(f"Erreur réseau : {e}")
+            
+    print("Toutes les tentatives de connexion ont échoué.")
+    return None
