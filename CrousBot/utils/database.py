@@ -7,7 +7,7 @@ load_dotenv()
 DB_HOST = os.getenv("DB_HOST", "mysql-aimene.alwaysdata.net")
 DB_USER = os.getenv("DB_USER", "aimene")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_NAME = os.getenv("DB_NAME", "aimene_vinted")
+DB_NAME = os.getenv("CROUS_DB_NAME", "aimene_crous")
 
 async def get_pool():
     if not hasattr(get_pool, "pool") or get_pool.pool is None:
