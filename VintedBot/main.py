@@ -1,3 +1,4 @@
+import asyncio
 import discord
 from discord.ext import commands
 from aiohttp_socks import ProxyConnector
@@ -11,8 +12,7 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 class VintedBot(commands.Bot):
-    def __init__(self):
-        connector = ProxyConnector.from_url("socks5://127.0.0.1:1080")
+    def __init__(self, connector):
         super().__init__(
             command_prefix="!",
             intents=discord.Intents.default(),
@@ -37,9 +37,16 @@ class VintedBot(commands.Bot):
     async def on_ready(self):
         print(f"Bot connecté en tant que {self.user}")
 
+async def run_bot():
+    connector = ProxyConnector.from_url("socks5://127.0.0.1:1080")
+    bot = VintedBot(connector)
+    try:
+        await bot.start(TOKEN)
+    finally:
+        await bot.close()
+
 if __name__ == "__main__":
     if not TOKEN:
         print("Erreur: DISCORD_BOT_TOKEN manquant dans le fichier .env")
     else:
-        bot = VintedBot()
-        bot.run(TOKEN)
+        asyncio.run(run_bot())

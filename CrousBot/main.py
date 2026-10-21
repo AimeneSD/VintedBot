@@ -61,11 +61,7 @@ async def autocomplete_villes(interaction: discord.Interaction, current: str) ->
 # Initialisation du Bot Discord
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(
-    command_prefix="/",
-    intents=intents,
-    connector=ProxyConnector.from_url("socks5://127.0.0.1:1080"),
-)
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 
 
@@ -459,9 +455,16 @@ async def commande_logout(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("Tu n'étais pas connecté.", ephemeral=True)
 
-def start():
+async def run_bot():
     print("Démarrage du bot Discord...")
-    bot.run(TOKEN_BOT_DISCORD)
+    bot.http.connector = ProxyConnector.from_url("socks5://127.0.0.1:1080")
+    try:
+        await bot.start(TOKEN_BOT_DISCORD)
+    finally:
+        await bot.close()
+
+def start():
+    asyncio.run(run_bot())
 
 if __name__ == "__main__":
     start()
