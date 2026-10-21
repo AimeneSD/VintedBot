@@ -5,9 +5,13 @@ import json
 import base64
 import hashlib
 import re
+import socket
+import time
 from bs4 import BeautifulSoup
 
 RAYON_DEFAULT_KM = 25
+SOCKS_PROXY_ADDRESS = ("127.0.0.1", 1080)
+_last_proxy_error_log_at = 0.0
 
 cookies_base = {
     'tool.47.hasUserReadRules': 'true',
@@ -52,6 +56,44 @@ def obtenir_coordonnees(nom_ville):
     except Exception as e:
         print(f"Erreur Géocodage : {e}")
     return None, None, None, None
+
+def log_proxy_error(operation, error):
+    """Identifie si un échec réseau vient du proxy local ou de sa destination."""
+    global _last_proxy_error_log_at
+
+    now = time.monotonic()
+    if now - _last_proxy_error_log_at < 60:
+        return
+    _last_proxy_error_log_at = now
+
+    try:
+        with socket.create_connection(SOCKS_PROXY_ADDRESS, timeout=2):
+            pass
+    except OSError as proxy_error:
+        print(
+            f"[CROUS][Proxy][LOCAL_UNREACHABLE] {operation}: "
+            f"impossible d'ouvrir une connexion TCP vers "
+            f"{SOCKS_PROXY_ADDRESS[0]}:{SOCKS_PROXY_ADDRESS[1]} "
+            f"({type(proxy_error).__name__}). Wireproxy n'écoute pas "
+            "ou n'est pas joignable localement."
+        )
+        return
+
+    error_text = str(error).lower()
+    if "0x05" in error_text and "connection refused" in error_text:
+        print(
+            f"[CROUS][Proxy][DESTINATION_REFUSED] {operation}: "
+            f"le proxy local {SOCKS_PROXY_ADDRESS[0]}:{SOCKS_PROXY_ADDRESS[1]} "
+            "accepte les connexions TCP, puis répond SOCKS5 0x05 "
+            "(connexion à la destination refusée). L'échec se produit "
+            "après l'accès au proxy local, lors de la connexion vers CROUS."
+        )
+    else:
+        print(
+            f"[CROUS][Proxy][REQUEST_FAILED] {operation}: "
+            f"le proxy local accepte les connexions TCP, mais la requête "
+            f"via SOCKS échoue ({type(error).__name__})."
+        )
 
 def chercher_crous(lat, lon, rayon_km=RAYON_DEFAULT_KM, bbox=None, phpsessid=None):
     """Effectue la requête au CROUS dans une Bounding Box exacte ou un périmètre"""
@@ -99,7 +141,7 @@ def chercher_crous(lat, lon, rayon_km=RAYON_DEFAULT_KM, bbox=None, phpsessid=Non
         if response.status_code == 200:
             return response.json().get('results', {}).get('items', [])
     except Exception as e:
-        print(f"Erreur API CROUS : {e}")
+        log_proxy_error("recherche de logements vers trouverunlogement.lescrous.fr:443", e)
     return []
 
 
@@ -136,7 +178,7 @@ def verifier_session(phpsessid):
             print(f"Erreur vérification session : Code HTTP {response.status_code}")
             return None
     except Exception as e:
-        print(f"Erreur vérification session (Exception) : {e}")
+        log_proxy_error("vérification de session vers trouverunlogement.lescrous.fr:443", e)
         return None
 
 def solve_altcha(challenge_json_str):
@@ -166,7 +208,7 @@ def solve_altcha(challenge_json_str):
 
 def renouveler_session_automatiquement(email, password):
     """Effectue tout le parcours OAuth2 + Altcha pour récupérer un PHPSESSID valide"""
-    print(f"Tentative de connexion pour {email}...")
+    print("Tentative de connexion au service CROUS...")
     
     for attempt in range(3):
         if attempt > 0:
@@ -191,7 +233,7 @@ def renouveler_session_automatiquement(email, password):
             soup1 = BeautifulSoup(r1.text, 'html.parser')
             form1 = soup1.find('form', {'name': 'login'})
             if not form1:
-                print(f"Erreur: Formulaire Etape 1 introuvable. Code HTML partiel: {r1.text[:200]}")
+                print("Erreur: formulaire de connexion introuvable à l'étape 1.")
                 continue
                 
             payload1 = {}
@@ -210,7 +252,7 @@ def renouveler_session_automatiquement(email, password):
             form2 = soup2.find('form', {'name': 'login'})
             
             if not form2:
-                print("Erreur: Formulaire Etape 2 introuvable")
+                print("Erreur: formulaire de connexion introuvable à l'étape 2.")
                 continue
                 
             payload2 = {}
@@ -237,27 +279,26 @@ def renouveler_session_automatiquement(email, password):
             cookies = s.cookies.get_dict()
             phpsessid = cookies.get('PHPSESSID')
             
-            # DEBUG PRINTS
-            print(f"DEBUG: Après Step 3, URL finale = {r3.url}")
-            print(f"DEBUG: Cookies récupérés = {cookies}")
             if phpsessid:
                 is_valid = verifier_session(phpsessid)
-                print(f"DEBUG: PHPSESSID récupéré ({phpsessid[:5]}...), verifier_session = {is_valid}")
+                print(f"[Session] Cookie CROUS récupéré; vérification API : {is_valid}.")
                 if is_valid:
                     print("Authentification réussie ! PHPSESSID récupéré.")
                     return phpsessid
                 else:
-                    print("DEBUG: PHPSESSID invalide selon l'API /user")
+                    print("Le cookie CROUS récupéré est refusé par l'API /user.")
             else:
-                print("DEBUG: Aucun PHPSESSID trouvé dans les cookies.")
-                print(f"DEBUG: Code HTML partiel r3: {r3.text[:250]}")
+                print("Aucun cookie PHPSESSID reçu après l'authentification.")
                 
             print("Echec de l'authentification (identifiants invalides ou bloqué).")
             # Ne retourne pas None tout de suite, on laisse la boucle réessayer si c'est un blocage
         except requests.exceptions.Timeout:
-            print("Erreur : Timeout lors de la connexion. Le proxy ou le CROUS est très lent.")
+            log_proxy_error(
+                "authentification vers trouverunlogement.lescrous.fr:443",
+                requests.exceptions.Timeout(),
+            )
         except requests.exceptions.RequestException as e:
-            print(f"Erreur réseau : {e}")
+            log_proxy_error("authentification vers le service CROUS", e)
             
     print("Toutes les tentatives de connexion ont échoué.")
     return None
