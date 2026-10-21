@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from aiohttp_socks import ProxyConnector
 import os
 from dotenv import load_dotenv
 import utils.database as db
@@ -11,7 +12,12 @@ TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 class VintedBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix="!", intents=discord.Intents.default())
+        connector = ProxyConnector.from_url("socks5://127.0.0.1:1080")
+        super().__init__(
+            command_prefix="!",
+            intents=discord.Intents.default(),
+            connector=connector,
+        )
 
     async def setup_hook(self):
         # Charger les extensions (Cogs)

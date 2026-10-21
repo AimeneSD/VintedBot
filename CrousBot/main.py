@@ -1,6 +1,7 @@
 import os
 import asyncio
 import discord
+from aiohttp_socks import ProxyConnector
 from discord import app_commands
 from discord.ext import commands, tasks
 
@@ -60,7 +61,11 @@ async def autocomplete_villes(interaction: discord.Interaction, current: str) ->
 # Initialisation du Bot Discord
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="/", intents=intents)
+bot = commands.Bot(
+    command_prefix="/",
+    intents=intents,
+    connector=ProxyConnector.from_url("socks5://127.0.0.1:1080"),
+)
 
 
 
